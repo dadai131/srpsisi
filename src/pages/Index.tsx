@@ -65,7 +65,7 @@ const Index = () => {
       <Sidebar activeCategory={activeCategory} onCategoryChange={handleCategoryChange} />
       <Header onSearch={handleSearch} />
 
-      <main className={`${isMobile ? 'pt-14 pb-20' : 'pl-[70px] pt-14'}`}>
+      <main className={`${isMobile ? 'pt-14 pb-24' : 'pl-[70px] pt-14'}`}>
         {!searchQuery && <HeroBanner item={featuredItem} />}
 
         <div className="px-4 md:px-8 py-6">

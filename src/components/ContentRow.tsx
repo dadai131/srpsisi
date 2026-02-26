@@ -40,15 +40,15 @@ export function ContentRow({ title, items, showRank }: ContentRowProps) {
 
         <div
           ref={scrollRef}
-          className="flex gap-3 overflow-x-auto scrollbar-hide px-2 scroll-smooth"
+          className="flex gap-3 overflow-x-auto scrollbar-hide px-2 scroll-smooth snap-x snap-mandatory"
         >
           {items.map((item, index) => {
             const type = item.type === 'movie' ? 'movie' : 'serie';
             return (
               <div
                 key={item.id + '-' + index}
-                className="flex-shrink-0 cursor-pointer relative"
-                style={{ width: showRank ? '180px' : '160px' }}
+                className="flex-shrink-0 cursor-pointer relative snap-start"
+                style={{ width: showRank ? '180px' : '140px' }}
                 onClick={() => navigate(`/watch/${type}/${item.id}`)}
               >
                 {/* Rank Number */}
