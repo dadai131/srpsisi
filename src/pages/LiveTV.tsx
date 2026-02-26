@@ -4,10 +4,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Play, Radio, Clock, Trophy, Tv, Info } from 'lucide-react';
 
-const PROXY_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/superflix-proxy`;
-const PROXY_HEADERS = {
-  'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-};
+const EMBEDTV_BASE = 'https://embedtv.best/api';
 // --- Types ---
 interface GameTeam { name: string; image: string; }
 interface GameData { league: string; timer: { start: number; end: number }; teams: { home: GameTeam; away: GameTeam }; }
@@ -58,7 +55,7 @@ const LiveTV = () => {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`${PROXY_BASE}?endpoint=jogos`, { headers: PROXY_HEADERS });
+        const res = await fetch(`${EMBEDTV_BASE}/jogos`);
         if (res.ok) { const data = await res.json(); setGames(data); }
       } catch (e) { console.error('Erro jogos:', e); }
       finally { setIsLoadingGames(false); }
@@ -73,8 +70,8 @@ const LiveTV = () => {
     async function load() {
       try {
         const [chRes, epgRes] = await Promise.all([
-          fetch(`${PROXY_BASE}?endpoint=channels`, { headers: PROXY_HEADERS }),
-          fetch(`${PROXY_BASE}?endpoint=epg`, { headers: PROXY_HEADERS }),
+          fetch(`${EMBEDTV_BASE}/channels`),
+          fetch(`${EMBEDTV_BASE}/epg`),
         ]);
         if (chRes.ok) {
           const data = await chRes.json();
