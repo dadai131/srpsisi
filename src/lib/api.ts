@@ -231,8 +231,7 @@ export function getPlayerUrl(
   let url = '';
   
   if (type === 'movie') {
-    const imdbId = id.startsWith('tt') ? id : `tt${id}`;
-    url = `${API_BASE}/filme/${imdbId}`;
+    url = `${API_BASE}/filme/${id}`;
   } else {
     url = `${API_BASE}/serie/${id}`;
     if (season) {
