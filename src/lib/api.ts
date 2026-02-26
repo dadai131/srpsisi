@@ -1,6 +1,6 @@
 import { ContentItem, ContentType, CalendarItem } from '@/types/content';
 
-const TMDB_API_KEY = '9d8edbe878a53f79f0e3d5757f53b185';
+const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY || '9d8edbe878a53f79f0e3d5757f53b185';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
 const TMDB_BACKDROP_BASE = 'https://image.tmdb.org/t/p/w1280';
