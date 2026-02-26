@@ -225,8 +225,25 @@ export function getPlayerUrl(
   type: 'movie' | 'serie', 
   season?: number, 
   episode?: number,
-  options?: { color?: string; transparent?: boolean; noEpList?: boolean }
+  options?: { color?: string; transparent?: boolean; noEpList?: boolean },
+  player: 1 | 2 = 1
 ): string {
+  if (player === 2) {
+    // PrimeVicio player
+    const BASE = 'https://primevicio.com';
+    if (type === 'movie') {
+      return `${BASE}/filme/${id}`;
+    } else {
+      let url = `${BASE}/serie/${id}`;
+      if (season) {
+        url += `/${season}`;
+        if (episode) url += `/${episode}`;
+      }
+      return url;
+    }
+  }
+
+  // Superflix player (default)
   const API_BASE = 'https://superflixapi.buzz';
   let url = '';
   
@@ -236,9 +253,7 @@ export function getPlayerUrl(
     url = `${API_BASE}/serie/${id}`;
     if (season) {
       url += `/${season}`;
-      if (episode) {
-        url += `/${episode}`;
-      }
+      if (episode) url += `/${episode}`;
     }
   }
 
