@@ -43,10 +43,12 @@ const Index = () => {
   // Split content into sections
   const movies = content.filter(c => c.type === 'movie' && !(c as any)._section);
   const nowPlaying = content.filter(c => (c as any)._section === 'nowplaying');
-  const series = content.filter(c => c.type === 'serie');
+  const series = content.filter(c => c.type === 'serie' && !(c as any)._section);
+  const seriesToday = content.filter(c => (c as any)._section === 'series_today');
   const animes = content.filter(c => c.type === 'anime' && !(c as any)._section);
   const animesTopRated = content.filter(c => (c as any)._section === 'anime_top');
   const animesRecent = content.filter(c => (c as any)._section === 'anime_recent');
+  const animesToday = content.filter(c => (c as any)._section === 'anime_today');
   const doramas = content.filter(c => c.type === 'dorama' && !(c as any)._section);
   const doramasTopRated = content.filter(c => (c as any)._section === 'dorama_top');
   const doramasRecent = content.filter(c => (c as any)._section === 'dorama_recent');
@@ -86,6 +88,12 @@ const Index = () => {
               )}
               {series.length > 0 && (
                 <ContentRow title="🔥 Top 10 Séries da Semana" items={series.slice(0, 10)} showRank />
+              )}
+              {seriesToday.length > 0 && (
+                <ContentRow title="📺 Séries Lançadas Hoje" items={seriesToday} />
+              )}
+              {animesToday.length > 0 && (
+                <ContentRow title="📺 Animes Lançados Hoje" items={animesToday} />
               )}
               {animes.length > 0 && (
                 <ContentRow title="🔥 Animes Populares" items={animes} />
