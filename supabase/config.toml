@@ -1,1 +1,10 @@
 project_id = "xfqocptliyukeypvylom"
+
+[functions.superflix-proxy]
+verify_jwt = false
+
+[functions.tmdb-proxy]
+verify_jwt = false
+
+[functions.track-pageview]
+verify_jwt = false
