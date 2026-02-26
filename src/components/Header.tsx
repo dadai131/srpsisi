@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Search, Send, Calendar } from 'lucide-react';
+import { Search, Calendar } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import logoImg from '@/assets/logo.png';
+import telegramIcon from '@/assets/telegram-icon.png';
 import { Button } from '@/components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -54,7 +55,7 @@ export function Header({ onSearch }: HeaderProps) {
             asChild
           >
             <a href="https://t.me/lokifilmes" target="_blank" rel="noopener noreferrer">
-              <Send className="w-4 h-4" />
+              <img src={telegramIcon} alt="Telegram" className="w-5 h-5 rounded-full" />
             </a>
           </Button>
           <Button
