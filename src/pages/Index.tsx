@@ -44,8 +44,12 @@ const Index = () => {
   const movies = content.filter(c => c.type === 'movie' && !(c as any)._section);
   const nowPlaying = content.filter(c => (c as any)._section === 'nowplaying');
   const series = content.filter(c => c.type === 'serie');
-  const animes = content.filter(c => c.type === 'anime');
-  const doramas = content.filter(c => c.type === 'dorama');
+  const animes = content.filter(c => c.type === 'anime' && !(c as any)._section);
+  const animesTopRated = content.filter(c => (c as any)._section === 'anime_top');
+  const animesRecent = content.filter(c => (c as any)._section === 'anime_recent');
+  const doramas = content.filter(c => c.type === 'dorama' && !(c as any)._section);
+  const doramasTopRated = content.filter(c => (c as any)._section === 'dorama_top');
+  const doramasRecent = content.filter(c => (c as any)._section === 'dorama_recent');
 
   const featuredItem = content.length > 0 ? content[0] : null;
 
@@ -84,16 +88,22 @@ const Index = () => {
                 <ContentRow title="🔥 Top 10 Séries da Semana" items={series.slice(0, 10)} showRank />
               )}
               {animes.length > 0 && (
-                <ContentRow title="Animes em Destaque" items={animes} />
+                <ContentRow title="🔥 Animes Populares" items={animes} />
+              )}
+              {animesTopRated.length > 0 && (
+                <ContentRow title="⭐ Animes Mais Bem Avaliados" items={animesTopRated} />
+              )}
+              {animesRecent.length > 0 && (
+                <ContentRow title="🆕 Animes Recentes" items={animesRecent} />
               )}
               {doramas.length > 0 && (
-                <ContentRow title="Doramas Populares" items={doramas} />
+                <ContentRow title="🔥 Doramas Populares" items={doramas} />
               )}
-              {movies.length > 10 && (
-                <ContentRow title="Mais Filmes" items={movies.slice(10)} />
+              {doramasTopRated.length > 0 && (
+                <ContentRow title="⭐ Doramas Mais Bem Avaliados" items={doramasTopRated} />
               )}
-              {series.length > 10 && (
-                <ContentRow title="Mais Séries" items={series.slice(10)} />
+              {doramasRecent.length > 0 && (
+                <ContentRow title="🆕 Doramas Recentes" items={doramasRecent} />
               )}
             </>
           )}

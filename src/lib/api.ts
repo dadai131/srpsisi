@@ -63,10 +63,10 @@ async function fetchTmdbNowPlaying(): Promise<TmdbResult[]> {
 }
 
 // Discover anime (animation genre 16, from Japan)
-async function fetchTmdbAnime(): Promise<TmdbResult[]> {
+async function fetchTmdbAnime(sort: string = 'popularity.desc'): Promise<TmdbResult[]> {
   try {
     const res = await fetch(
-      `${TMDB_BASE}/discover/tv?api_key=${TMDB_API_KEY}&language=pt-BR&with_genres=16&with_origin_country=JP&sort_by=popularity.desc`
+      `${TMDB_BASE}/discover/tv?api_key=${TMDB_API_KEY}&language=pt-BR&with_genres=16&with_origin_country=JP&sort_by=${sort}`
     );
     if (!res.ok) throw new Error(`TMDB ${res.status}`);
     const data = await res.json();
@@ -77,17 +77,59 @@ async function fetchTmdbAnime(): Promise<TmdbResult[]> {
   }
 }
 
+// Top rated anime
+async function fetchTmdbAnimeTopRated(): Promise<TmdbResult[]> {
+  return fetchTmdbAnime('vote_average.desc&vote_count.gte=200');
+}
+
+// Recently released anime
+async function fetchTmdbAnimeRecent(): Promise<TmdbResult[]> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const res = await fetch(
+      `${TMDB_BASE}/discover/tv?api_key=${TMDB_API_KEY}&language=pt-BR&with_genres=16&with_origin_country=JP&sort_by=first_air_date.desc&first_air_date.lte=${today}&vote_count.gte=10`
+    );
+    if (!res.ok) throw new Error(`TMDB ${res.status}`);
+    const data = await res.json();
+    return data.results || [];
+  } catch (e) {
+    console.error('Erro TMDB anime recent:', e);
+    return [];
+  }
+}
+
 // Discover doramas (Korean dramas)
-async function fetchTmdbDorama(): Promise<TmdbResult[]> {
+async function fetchTmdbDorama(sort: string = 'popularity.desc'): Promise<TmdbResult[]> {
   try {
     const res = await fetch(
-      `${TMDB_BASE}/discover/tv?api_key=${TMDB_API_KEY}&language=pt-BR&with_origin_country=KR&sort_by=popularity.desc`
+      `${TMDB_BASE}/discover/tv?api_key=${TMDB_API_KEY}&language=pt-BR&with_origin_country=KR&sort_by=${sort}`
     );
     if (!res.ok) throw new Error(`TMDB ${res.status}`);
     const data = await res.json();
     return data.results || [];
   } catch (e) {
     console.error('Erro TMDB dorama:', e);
+    return [];
+  }
+}
+
+// Top rated doramas
+async function fetchTmdbDoramaTopRated(): Promise<TmdbResult[]> {
+  return fetchTmdbDorama('vote_average.desc&vote_count.gte=100');
+}
+
+// Recently released doramas
+async function fetchTmdbDoramaRecent(): Promise<TmdbResult[]> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const res = await fetch(
+      `${TMDB_BASE}/discover/tv?api_key=${TMDB_API_KEY}&language=pt-BR&with_origin_country=KR&sort_by=first_air_date.desc&first_air_date.lte=${today}&vote_count.gte=10`
+    );
+    if (!res.ok) throw new Error(`TMDB ${res.status}`);
+    const data = await res.json();
+    return data.results || [];
+  } catch (e) {
+    console.error('Erro TMDB dorama recent:', e);
     return [];
   }
 }
@@ -129,24 +171,36 @@ export async function fetchContent(category: ContentType = 'all', query?: string
     }
 
     if (category === 'all') {
-      const [trendingMovies, trendingSeries, animes, doramas, nowPlaying] = await Promise.all([
+      const [trendingMovies, trendingSeries, animes, animesTopRated, animesRecent, doramas, doramasTopRated, doramasRecent, nowPlaying] = await Promise.all([
         fetchTmdbTrending('movie'),
         fetchTmdbTrending('tv'),
         fetchTmdbAnime(),
+        fetchTmdbAnimeTopRated(),
+        fetchTmdbAnimeRecent(),
         fetchTmdbDorama(),
+        fetchTmdbDoramaTopRated(),
+        fetchTmdbDoramaRecent(),
         fetchTmdbNowPlaying(),
       ]);
 
       const movies = trendingMovies.map(m => tmdbToContentItem(m, 'movie'));
       const series = trendingSeries.map(s => tmdbToContentItem(s, 'serie'));
       const animeItems = animes.map(a => tmdbToContentItem(a, 'anime'));
+      const animeTopItems = animesTopRated.map(a => tmdbToContentItem(a, 'anime'));
+      const animeRecentItems = animesRecent.map(a => tmdbToContentItem(a, 'anime'));
       const doramaItems = doramas.map(d => tmdbToContentItem(d, 'dorama'));
+      const doramaTopItems = doramasTopRated.map(d => tmdbToContentItem(d, 'dorama'));
+      const doramaRecentItems = doramasRecent.map(d => tmdbToContentItem(d, 'dorama'));
       const nowPlayingItems = nowPlaying.map(m => tmdbToContentItem(m, 'movie'));
 
-      // Tag now playing items for identification
+      // Tag sections for identification
       nowPlayingItems.forEach(item => { (item as any)._section = 'nowplaying'; });
+      animeTopItems.forEach(item => { (item as any)._section = 'anime_top'; });
+      animeRecentItems.forEach(item => { (item as any)._section = 'anime_recent'; });
+      doramaTopItems.forEach(item => { (item as any)._section = 'dorama_top'; });
+      doramaRecentItems.forEach(item => { (item as any)._section = 'dorama_recent'; });
 
-      content = [...movies, ...series, ...animeItems, ...doramaItems, ...nowPlayingItems];
+      content = [...movies, ...series, ...animeItems, ...animeTopItems, ...animeRecentItems, ...doramaItems, ...doramaTopItems, ...doramaRecentItems, ...nowPlayingItems];
     } else if (category === 'movie') {
       const results = await fetchTmdbTrending('movie');
       content = results.map(m => tmdbToContentItem(m, 'movie'));
@@ -154,11 +208,29 @@ export async function fetchContent(category: ContentType = 'all', query?: string
       const results = await fetchTmdbTrending('tv');
       content = results.map(s => tmdbToContentItem(s, 'serie'));
     } else if (category === 'anime') {
-      const results = await fetchTmdbAnime();
-      content = results.map(a => tmdbToContentItem(a, 'anime'));
+      const [popular, topRated, recent] = await Promise.all([
+        fetchTmdbAnime(),
+        fetchTmdbAnimeTopRated(),
+        fetchTmdbAnimeRecent(),
+      ]);
+      const popularItems = popular.map(a => tmdbToContentItem(a, 'anime'));
+      const topItems = topRated.map(a => tmdbToContentItem(a, 'anime'));
+      topItems.forEach(item => { (item as any)._section = 'anime_top'; });
+      const recentItems = recent.map(a => tmdbToContentItem(a, 'anime'));
+      recentItems.forEach(item => { (item as any)._section = 'anime_recent'; });
+      content = [...popularItems, ...topItems, ...recentItems];
     } else if (category === 'dorama') {
-      const results = await fetchTmdbDorama();
-      content = results.map(d => tmdbToContentItem(d, 'dorama'));
+      const [popular, topRated, recent] = await Promise.all([
+        fetchTmdbDorama(),
+        fetchTmdbDoramaTopRated(),
+        fetchTmdbDoramaRecent(),
+      ]);
+      const popularItems = popular.map(d => tmdbToContentItem(d, 'dorama'));
+      const topItems = topRated.map(d => tmdbToContentItem(d, 'dorama'));
+      topItems.forEach(item => { (item as any)._section = 'dorama_top'; });
+      const recentItems = recent.map(d => tmdbToContentItem(d, 'dorama'));
+      recentItems.forEach(item => { (item as any)._section = 'dorama_recent'; });
+      content = [...popularItems, ...topItems, ...recentItems];
     }
 
     return content;
