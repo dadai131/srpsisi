@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Play, Radio, Clock, Trophy, Tv, Info, Copy, Check } from 'lucide-react';
+import { Play, Radio, Clock, Trophy, Tv, Info } from 'lucide-react';
 
 const PROXY_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/superflix-proxy`;
 const PROXY_HEADERS = {
@@ -52,17 +52,7 @@ const LiveTV = () => {
   const [selectedGame, setSelectedGame] = useState<LiveGame | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<TVChannel | null>(null);
   const [activeCategory, setActiveCategory] = useState(0);
-  const [copied, setCopied] = useState(false);
   const isMobile = useIsMobile();
-
-  const m3uUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/m3u-playlist`;
-
-  const handleCopyM3ULink = () => {
-    navigator.clipboard.writeText(m3uUrl).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
 
   // Load games
   useEffect(() => {
@@ -196,14 +186,6 @@ const LiveTV = () => {
               {games.length > 0 && (
                 <span className="bg-destructive text-destructive-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">{games.length}</span>
               )}
-            </button>
-            <button
-              onClick={handleCopyM3ULink}
-              disabled={channels.length === 0}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all bg-card text-muted-foreground hover:text-foreground border border-border/50 disabled:opacity-50"
-            >
-              {copied ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
-              {copied ? 'Copiado!' : 'Copiar M3U'}
             </button>
           </div>
 
