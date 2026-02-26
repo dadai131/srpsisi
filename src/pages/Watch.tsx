@@ -13,6 +13,7 @@ const Watch = () => {
   
   const [season, setSeason] = useState(Number(searchParams.get('s')) || 1);
   const [episode, setEpisode] = useState(Number(searchParams.get('e')) || 1);
+  const [activePlayer, setActivePlayer] = useState<1 | 2>(1);
   const [theme, setTheme] = useState<PlayerTheme>({
     color: 'e50914',
     transparent: false,
@@ -36,7 +37,8 @@ const Watch = () => {
         isSeries ? 'serie' : 'movie',
         isSeries ? season : undefined,
         isSeries ? episode : undefined,
-        theme
+        theme,
+        activePlayer
       )
     : '';
 
@@ -58,7 +60,7 @@ const Watch = () => {
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 glass-effect">
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14">
             <Button
               variant="ghost"
               size="sm"
@@ -68,6 +70,30 @@ const Watch = () => {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar
             </Button>
+
+            {/* Player Switcher */}
+            <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
+              <button
+                onClick={() => setActivePlayer(1)}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  activePlayer === 1
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Superflix
+              </button>
+              <button
+                onClick={() => setActivePlayer(2)}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  activePlayer === 2
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                PrimeVicio
+              </button>
+            </div>
 
             {isSeries && (
               <div className="flex items-center gap-2 text-sm">
@@ -81,11 +107,12 @@ const Watch = () => {
       </header>
 
       {/* Player Section */}
-      <main className="pt-16">
-        <div className="container mx-auto px-4 py-8">
+      <main className="pt-14">
+        <div className="container mx-auto px-4 py-6">
           {/* Player Container */}
           <div className="relative w-full aspect-video bg-card rounded-lg overflow-hidden shadow-2xl mb-6">
             <iframe
+              key={`${activePlayer}-${id}-${season}-${episode}`}
               src={playerUrl}
               className="absolute inset-0 w-full h-full"
               allowFullScreen
@@ -148,8 +175,10 @@ const Watch = () => {
             </div>
           )}
 
-          {/* Player Controls */}
-          <PlayerControls theme={theme} onThemeChange={setTheme} />
+          {/* Player Controls (only for Superflix) */}
+          {activePlayer === 1 && (
+            <PlayerControls theme={theme} onThemeChange={setTheme} />
+          )}
         </div>
       </main>
     </div>
