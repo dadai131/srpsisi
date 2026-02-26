@@ -29,8 +29,8 @@ const LiveTV = () => {
                 src={selectedChannel.embed}
                 className="w-full h-full"
                 allowFullScreen
-                sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
                 allow="autoplay; encrypted-media; picture-in-picture"
+                referrerPolicy="no-referrer"
                 style={{ border: 'none' }}
               />
             </div>
