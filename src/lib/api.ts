@@ -1,124 +1,164 @@
 import { ContentItem, ContentType, CalendarItem } from '@/types/content';
-import { supabase } from '@/integrations/supabase/client';
 
 const TMDB_API_KEY = '9d8edbe878a53f79f0e3d5757f53b185';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
+const TMDB_BACKDROP_BASE = 'https://image.tmdb.org/t/p/w1280';
 
-interface TmdbMovie {
+interface TmdbResult {
   id: number;
   title?: string;
   name?: string;
-  poster_path?: string;
+  poster_path?: string | null;
+  backdrop_path?: string | null;
   release_date?: string;
   first_air_date?: string;
   vote_average?: number;
   overview?: string;
 }
 
-// Imagens de teste para filmes/séries (Unsplash)
-const TEST_POSTERS = [
-  'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=300&h=450&fit=crop',
-  'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=300&h=450&fit=crop',
-  'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=300&h=450&fit=crop',
-  'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=300&h=450&fit=crop',
-  'https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=300&h=450&fit=crop',
-  'https://images.unsplash.com/photo-1594909122845-11baa439b7bf?w=300&h=450&fit=crop',
-  'https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?w=300&h=450&fit=crop',
-  'https://images.unsplash.com/photo-1616530940355-351fabd9524b?w=300&h=450&fit=crop',
-  'https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?w=300&h=450&fit=crop',
-  'https://images.unsplash.com/photo-1635805737707-575885ab0820?w=300&h=450&fit=crop',
-];
-
-const TEST_TITLES = [
-  'Ação Explosiva', 'Mistério na Noite', 'Aventura Épica', 'Drama Intenso',
-  'Comédia Hilária', 'Terror Sombrio', 'Romance Eterno', 'Ficção Científica',
-  'Thriller Psicológico', 'Fantasia Mágica', 'Animação Incrível', 'Documentário Real',
-  'Suspense Tenso', 'Western Clássico', 'Musical Vibrante', 'Crime Noir',
-  'Super-Herói', 'Guerra Mundial', 'Esporte Radical', 'Família Unida',
-];
-
-function createMockItem(id: string, type: ContentType, index: number): ContentItem {
-  const posterIndex = index % TEST_POSTERS.length;
-  const titleIndex = index % TEST_TITLES.length;
-  const year = 2020 + (index % 5);
-  const rating = 6 + Math.random() * 3;
-
-  return {
-    id,
-    title: `${TEST_TITLES[titleIndex]} ${index + 1}`,
-    poster: TEST_POSTERS[posterIndex],
-    type,
-    year: year.toString(),
-    rating: Math.round(rating * 10) / 10,
-  };
-}
-
-async function fetchIdsFromSuperflix(category: string, idType: 'imdb' | 'tmdb'): Promise<string[]> {
+// Fetch trending movies from TMDB
+async function fetchTmdbTrending(mediaType: 'movie' | 'tv'): Promise<TmdbResult[]> {
   try {
-
-    // Use URL params for GET request via query string
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/superflix-proxy?endpoint=lista&category=${category}&type=${idType}&format=json&order=asc`,
-      {
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-      }
+    const res = await fetch(
+      `${TMDB_BASE}/trending/${mediaType}/week?api_key=${TMDB_API_KEY}&language=pt-BR`
     );
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const responseData = await response.json();
-    
-    if (Array.isArray(responseData)) {
-      return responseData.map(String);
-    }
-    return [];
-  } catch (error) {
-    console.error(`Erro ao buscar IDs de ${category}:`, error);
+    if (!res.ok) throw new Error(`TMDB ${res.status}`);
+    const data = await res.json();
+    return data.results || [];
+  } catch (e) {
+    console.error(`Erro TMDB trending ${mediaType}:`, e);
     return [];
   }
 }
 
-function createMockContent(ids: string[], type: ContentType): ContentItem[] {
-  const limitedIds = ids.slice(0, 20);
-  return limitedIds.map((id, index) => createMockItem(id, type, index));
+// Fetch popular from TMDB
+async function fetchTmdbPopular(mediaType: 'movie' | 'tv', page = 1): Promise<TmdbResult[]> {
+  try {
+    const res = await fetch(
+      `${TMDB_BASE}/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=pt-BR&page=${page}`
+    );
+    if (!res.ok) throw new Error(`TMDB ${res.status}`);
+    const data = await res.json();
+    return data.results || [];
+  } catch (e) {
+    console.error(`Erro TMDB popular ${mediaType}:`, e);
+    return [];
+  }
+}
+
+// Fetch now playing movies
+async function fetchTmdbNowPlaying(): Promise<TmdbResult[]> {
+  try {
+    const res = await fetch(
+      `${TMDB_BASE}/movie/now_playing?api_key=${TMDB_API_KEY}&language=pt-BR&region=BR`
+    );
+    if (!res.ok) throw new Error(`TMDB ${res.status}`);
+    const data = await res.json();
+    return data.results || [];
+  } catch (e) {
+    console.error('Erro TMDB now_playing:', e);
+    return [];
+  }
+}
+
+// Discover anime (animation genre 16, from Japan)
+async function fetchTmdbAnime(): Promise<TmdbResult[]> {
+  try {
+    const res = await fetch(
+      `${TMDB_BASE}/discover/tv?api_key=${TMDB_API_KEY}&language=pt-BR&with_genres=16&with_origin_country=JP&sort_by=popularity.desc`
+    );
+    if (!res.ok) throw new Error(`TMDB ${res.status}`);
+    const data = await res.json();
+    return data.results || [];
+  } catch (e) {
+    console.error('Erro TMDB anime:', e);
+    return [];
+  }
+}
+
+// Discover doramas (Korean dramas)
+async function fetchTmdbDorama(): Promise<TmdbResult[]> {
+  try {
+    const res = await fetch(
+      `${TMDB_BASE}/discover/tv?api_key=${TMDB_API_KEY}&language=pt-BR&with_origin_country=KR&sort_by=popularity.desc`
+    );
+    if (!res.ok) throw new Error(`TMDB ${res.status}`);
+    const data = await res.json();
+    return data.results || [];
+  } catch (e) {
+    console.error('Erro TMDB dorama:', e);
+    return [];
+  }
+}
+
+const POSTER_FALLBACK = 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=300&h=450&fit=crop';
+
+function tmdbToContentItem(item: TmdbResult, type: ContentType): ContentItem {
+  const isMovie = !!item.title;
+  return {
+    id: item.id.toString(),
+    title: item.title || item.name || 'Sem título',
+    poster: item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : POSTER_FALLBACK,
+    backdrop: item.backdrop_path ? `${TMDB_BACKDROP_BASE}${item.backdrop_path}` : undefined,
+    type,
+    year: (item.release_date || item.first_air_date || '').substring(0, 4),
+    rating: item.vote_average ? Math.round(item.vote_average * 10) / 10 : undefined,
+    overview: item.overview,
+  };
 }
 
 export async function fetchContent(category: ContentType = 'all', query?: string): Promise<ContentItem[]> {
   try {
     let content: ContentItem[] = [];
 
-    if (category === 'all') {
-      // Filmes usam IMDB, séries/animes usam TMDB
-      const [movieIds, serieIds, animeIds] = await Promise.all([
-        fetchIdsFromSuperflix('movie', 'imdb'),
-        fetchIdsFromSuperflix('serie', 'tmdb'),
-        fetchIdsFromSuperflix('anime', 'tmdb'),
-      ]);
-
-      const [movies, series, animes] = [
-        createMockContent(movieIds, 'movie'),
-        createMockContent(serieIds, 'serie'),
-        createMockContent(animeIds, 'anime'),
-      ];
-
-      content = [...movies, ...series, ...animes];
-    } else {
-      const idType = category === 'movie' ? 'imdb' : 'tmdb';
-      
-      const ids = await fetchIdsFromSuperflix(category, idType);
-      content = createMockContent(ids, category);
+    if (query) {
+      // Search TMDB
+      const res = await fetch(
+        `${TMDB_BASE}/search/multi?api_key=${TMDB_API_KEY}&language=pt-BR&query=${encodeURIComponent(query)}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        content = (data.results || [])
+          .filter((r: TmdbResult & { media_type?: string }) => r.media_type === 'movie' || r.media_type === 'tv')
+          .map((r: TmdbResult & { media_type?: string }) =>
+            tmdbToContentItem(r, r.media_type === 'movie' ? 'movie' : 'serie')
+          );
+      }
+      return content;
     }
 
-    if (query) {
-      const searchTerm = query.toLowerCase();
-      content = content.filter(item => 
-        item.title.toLowerCase().includes(searchTerm)
-      );
+    if (category === 'all') {
+      const [trendingMovies, trendingSeries, animes, doramas, nowPlaying] = await Promise.all([
+        fetchTmdbTrending('movie'),
+        fetchTmdbTrending('tv'),
+        fetchTmdbAnime(),
+        fetchTmdbDorama(),
+        fetchTmdbNowPlaying(),
+      ]);
+
+      const movies = trendingMovies.map(m => tmdbToContentItem(m, 'movie'));
+      const series = trendingSeries.map(s => tmdbToContentItem(s, 'serie'));
+      const animeItems = animes.map(a => tmdbToContentItem(a, 'anime'));
+      const doramaItems = doramas.map(d => tmdbToContentItem(d, 'dorama'));
+      const nowPlayingItems = nowPlaying.map(m => tmdbToContentItem(m, 'movie'));
+
+      // Tag now playing items for identification
+      nowPlayingItems.forEach(item => { (item as any)._section = 'nowplaying'; });
+
+      content = [...movies, ...series, ...animeItems, ...doramaItems, ...nowPlayingItems];
+    } else if (category === 'movie') {
+      const results = await fetchTmdbTrending('movie');
+      content = results.map(m => tmdbToContentItem(m, 'movie'));
+    } else if (category === 'serie') {
+      const results = await fetchTmdbTrending('tv');
+      content = results.map(s => tmdbToContentItem(s, 'serie'));
+    } else if (category === 'anime') {
+      const results = await fetchTmdbAnime();
+      content = results.map(a => tmdbToContentItem(a, 'anime'));
+    } else if (category === 'dorama') {
+      const results = await fetchTmdbDorama();
+      content = results.map(d => tmdbToContentItem(d, 'dorama'));
     }
 
     return content;
@@ -160,7 +200,7 @@ export async function fetchCalendar(): Promise<CalendarItem[]> {
       }) => ({
         id: item.tmdb_id || item.imdb_id || '',
         title: item.title || 'Sem título',
-        poster: item.poster_path || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=300&h=450&fit=crop',
+        poster: item.poster_path || POSTER_FALLBACK,
         releaseDate: item.air_date || '',
         type: 'serie' as ContentType,
         episodeTitle: item.episode_title,
@@ -191,11 +231,9 @@ export function getPlayerUrl(
   let url = '';
   
   if (type === 'movie') {
-    // Filmes usam ID IMDb com prefixo "tt"
     const imdbId = id.startsWith('tt') ? id : `tt${id}`;
     url = `${API_BASE}/filme/${imdbId}`;
   } else {
-    // Séries usam ID TMDB direto
     url = `${API_BASE}/serie/${id}`;
     if (season) {
       url += `/${season}`;
@@ -205,7 +243,6 @@ export function getPlayerUrl(
     }
   }
 
-  // Formato correto de personalização: #param1#param2#color:hex
   const params: string[] = [];
   if (options?.noEpList) params.push('noEpList');
   if (options?.transparent) params.push('transparent');
