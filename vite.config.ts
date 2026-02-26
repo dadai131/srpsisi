@@ -18,4 +18,27 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ["react", "react-dom"],
   },
+  build: {
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_debugger: true,
+        passes: 2,
+      },
+      mangle: {
+        toplevel: true,
+      },
+      format: {
+        comments: false,
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+        chunkFileNames: 'assets/[hash].js',
+        entryFileNames: 'assets/[hash].js',
+        assetFileNames: 'assets/[hash].[ext]',
+      },
+    },
+  },
 }));
