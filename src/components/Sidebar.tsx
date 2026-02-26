@@ -1,4 +1,4 @@
-import { Home, Film, Tv, Radio, Sparkles, Heart, Ticket, Calendar } from 'lucide-react';
+import { Home, Film, Tv, Radio, Sparkles, Heart } from 'lucide-react';
 import { ContentType } from '@/types/content';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -15,7 +15,6 @@ const sidebarItems = [
   { icon: Radio, label: 'TV', category: 'all' as ContentType, special: 'tv', path: '/tv' },
   { icon: Sparkles, label: 'ANIMES', category: 'anime' as ContentType, path: '/' },
   { icon: Heart, label: 'DORAMAS', category: 'dorama' as ContentType, path: '/' },
-  { icon: Calendar, label: 'AGENDA', category: 'all' as ContentType, special: 'calendar', path: '/calendar' },
 ];
 
 export function Sidebar({ activeCategory, onCategoryChange }: SidebarProps) {
@@ -47,19 +46,19 @@ export function Sidebar({ activeCategory, onCategoryChange }: SidebarProps) {
 
   if (isMobile) {
     return (
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border/50 flex items-center h-14 px-1 overflow-x-auto scrollbar-hide">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border/50 flex items-center justify-around h-12 px-1">
         {sidebarItems.map((item) => {
           const isActive = isItemActive(item);
           return (
             <button
               key={item.label}
               onClick={() => handleClick(item)}
-              className={`flex flex-col items-center gap-0.5 py-1.5 px-3 flex-shrink-0 rounded-lg transition-colors ${
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-lg transition-colors ${
                 isActive ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
-              <item.icon className="w-5 h-5" />
-              <span className="text-[9px] font-semibold whitespace-nowrap">{item.label}</span>
+              <item.icon className="w-4 h-4" />
+              <span className="text-[8px] font-semibold whitespace-nowrap">{item.label}</span>
             </button>
           );
         })}
