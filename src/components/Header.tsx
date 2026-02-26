@@ -3,16 +3,10 @@ import { Search, Menu, X, Film, Calendar } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
-import { z } from 'zod';
 
 interface HeaderProps {
   onSearch: (query: string) => void;
 }
-
-// Validação de busca - previne XSS
-const searchSchema = z.string()
-  .max(100, 'Busca muito longa')
-  .transform(val => val.replace(/[<>]/g, '')); // Remove caracteres perigosos
 
 export function Header({ onSearch }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -21,12 +15,7 @@ export function Header({ onSearch }: HeaderProps) {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      const sanitizedQuery = searchSchema.parse(searchQuery);
-      onSearch(sanitizedQuery);
-    } catch {
-      onSearch(searchQuery.slice(0, 100));
-    }
+    onSearch(searchQuery);
   };
 
   return (
@@ -54,7 +43,6 @@ export function Header({ onSearch }: HeaderProps) {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 bg-secondary border-border/50 focus:border-primary transition-colors"
-                maxLength={100}
               />
             </div>
           </form>
@@ -73,15 +61,14 @@ export function Header({ onSearch }: HeaderProps) {
           </nav>
 
           {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </Button>
         </div>
 
         {/* Mobile Menu */}
@@ -96,7 +83,6 @@ export function Header({ onSearch }: HeaderProps) {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 bg-secondary border-border/50"
-                  maxLength={100}
                 />
               </div>
             </form>

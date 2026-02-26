@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Play, Star, Calendar, Sparkles } from 'lucide-react';
+import { Play, Star } from 'lucide-react';
 import { ContentItem } from '@/types/content';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -7,11 +7,9 @@ import { useNavigate } from 'react-router-dom';
 interface ContentCardProps {
   item: ContentItem;
   index?: number;
-  showRank?: boolean;
-  rank?: number;
 }
 
-export function ContentCard({ item, index = 0, showRank, rank }: ContentCardProps) {
+export function ContentCard({ item, index = 0 }: ContentCardProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const navigate = useNavigate();
@@ -25,17 +23,7 @@ export function ContentCard({ item, index = 0, showRank, rank }: ContentCardProp
     serie: 'Série',
     anime: 'Anime',
     dorama: 'Dorama',
-    trending: 'Em Alta',
-    popular: 'Popular',
-    nowplaying: 'Em Cartaz',
-    upcoming: 'Em Breve',
-    toprated: 'Top',
   };
-
-  // Verificar se é lançamento recente (ano atual ou anterior)
-  const currentYear = new Date().getFullYear();
-  const itemYear = parseInt(item.year || '0');
-  const isNew = itemYear >= currentYear - 1 && itemYear <= currentYear;
 
   return (
     <div
@@ -71,31 +59,12 @@ export function ContentCard({ item, index = 0, showRank, rank }: ContentCardProp
           isHovered ? 'opacity-100' : 'opacity-60'
         )} />
 
-        {/* Rank Badge (Top 10) */}
-        {showRank && rank && rank <= 10 && (
-          <div className="absolute top-2 left-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg">
-            <span className="text-sm font-black text-primary-foreground">{rank}</span>
-          </div>
-        )}
-
         {/* Type Badge */}
-        {!showRank && (
-          <div className="absolute top-2 left-2">
-            <span className="px-2 py-1 text-xs font-medium rounded bg-primary/90 text-primary-foreground">
-              {typeLabels[item.type] || item.type}
-            </span>
-          </div>
-        )}
-
-        {/* New Badge */}
-        {isNew && (
-          <div className="absolute top-2 left-2 ml-[calc(4rem)]">
-            <span className="px-2 py-1 text-xs font-medium rounded bg-green-500/90 text-white flex items-center gap-1">
-              <Sparkles className="w-3 h-3" />
-              Novo
-            </span>
-          </div>
-        )}
+        <div className="absolute top-2 left-2">
+          <span className="px-2 py-1 text-xs font-medium rounded bg-primary/90 text-primary-foreground">
+            {typeLabels[item.type] || item.type}
+          </span>
+        </div>
 
         {/* Rating Badge */}
         {item.rating && (
@@ -115,33 +84,14 @@ export function ContentCard({ item, index = 0, showRank, rank }: ContentCardProp
           </div>
         </div>
 
-        {/* Overview on Hover */}
-        {item.overview && isHovered && (
-          <div className="absolute inset-x-0 bottom-16 px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <p className="text-xs text-muted-foreground line-clamp-3 bg-background/80 backdrop-blur-sm rounded p-2">
-              {item.overview}
-            </p>
-          </div>
-        )}
-
         {/* Content Info */}
         <div className="absolute bottom-0 left-0 right-0 p-3">
           <h3 className="text-sm font-semibold text-foreground line-clamp-2 mb-1">
             {item.title}
           </h3>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            {item.year && (
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3 h-3" />
-                {item.year}
-              </span>
-            )}
-            {item.genres && item.genres.length > 0 && (
-              <span className="truncate">
-                {item.genres.slice(0, 2).map(g => g.name).join(', ')}
-              </span>
-            )}
-          </div>
+          {item.year && (
+            <p className="text-xs text-muted-foreground">{item.year}</p>
+          )}
         </div>
       </div>
     </div>

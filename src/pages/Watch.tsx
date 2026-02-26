@@ -3,17 +3,8 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PlayerControls } from '@/components/PlayerControls';
-import { PlayerTheme, ContentItem } from '@/types/content';
-import { getPlayerUrl, fetchMovieDetails } from '@/lib/api';
-
-type PlayerSource = 'superflix' | 'primevicio';
-
-function getPrimeVicioUrl(id: string, isSeries: boolean, season?: number, episode?: number): string {
-  if (isSeries) {
-    return `https://www.primevicio.lat/embed/tv/${id}/${season || 1}/${episode || 1}`;
-  }
-  return `https://www.primevicio.lat/embed/movie/${id}`;
-}
+import { PlayerTheme } from '@/types/content';
+import { getPlayerUrl } from '@/lib/api';
 
 const Watch = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
@@ -22,8 +13,6 @@ const Watch = () => {
   
   const [season, setSeason] = useState(Number(searchParams.get('s')) || 1);
   const [episode, setEpisode] = useState(Number(searchParams.get('e')) || 1);
-  const [contentDetails, setContentDetails] = useState<ContentItem | null>(null);
-  const [playerSource, setPlayerSource] = useState<PlayerSource>('primevicio');
   const [theme, setTheme] = useState<PlayerTheme>({
     color: 'e50914',
     transparent: false,
@@ -31,12 +20,6 @@ const Watch = () => {
   });
 
   const isSeries = type === 'serie' || type === 'anime' || type === 'dorama';
-
-  useEffect(() => {
-    if (id && type) {
-      fetchMovieDetails(id, 'tmdb', type as any).then(setContentDetails);
-    }
-  }, [id, type]);
 
   useEffect(() => {
     if (isSeries) {
@@ -47,7 +30,7 @@ const Watch = () => {
     }
   }, [season, episode, isSeries, setSearchParams]);
 
-  const superflixUrl = id
+  const playerUrl = id
     ? getPlayerUrl(
         id,
         isSeries ? 'serie' : 'movie',
@@ -56,9 +39,6 @@ const Watch = () => {
         theme
       )
     : '';
-
-  const primeVicioUrl = id ? getPrimeVicioUrl(id, isSeries, season, episode) : '';
-  const playerUrl = playerSource === 'superflix' ? superflixUrl : primeVicioUrl;
 
   const handlePrevEpisode = () => {
     if (episode > 1) {
@@ -89,16 +69,13 @@ const Watch = () => {
               Voltar
             </Button>
 
-            <div className="flex items-center gap-2 text-sm">
-              {contentDetails && (
-                <span className="text-foreground font-medium">{contentDetails.title}</span>
-              )}
-              {isSeries && (
+            {isSeries && (
+              <div className="flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground">
-                  • T{season} E{episode}
+                  T{season} E{episode}
                 </span>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -106,59 +83,14 @@ const Watch = () => {
       {/* Player Section */}
       <main className="pt-16">
         <div className="container mx-auto px-4 py-8">
-          {/* Content Info */}
-          {contentDetails && (
-            <div className="flex gap-6 mb-6">
-              <img
-                src={contentDetails.poster}
-                alt={contentDetails.title}
-                className="w-32 h-48 object-cover rounded-lg shadow-lg hidden md:block"
-              />
-              <div className="flex-1">
-                <h1 className="text-2xl font-bold text-foreground mb-2">{contentDetails.title}</h1>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  {contentDetails.year && <span>{contentDetails.year}</span>}
-                  {contentDetails.rating && (
-                    <span className="flex items-center gap-1">
-                      ⭐ {contentDetails.rating}
-                    </span>
-                  )}
-                  <span className="capitalize">{type}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Player Source Toggle */}
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-sm text-muted-foreground">Player:</span>
-            <Button
-              variant={playerSource === 'primevicio' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setPlayerSource('primevicio')}
-            >
-              Player 1
-            </Button>
-            <Button
-              variant={playerSource === 'superflix' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setPlayerSource('superflix')}
-            >
-              Player 2
-            </Button>
-          </div>
-
           {/* Player Container */}
-          <div className="relative w-full aspect-video bg-card rounded-lg overflow-hidden shadow-2xl mb-4">
+          <div className="relative w-full aspect-video bg-card rounded-lg overflow-hidden shadow-2xl mb-6">
             <iframe
-              key={playerUrl}
               src={playerUrl}
               className="absolute inset-0 w-full h-full"
               allowFullScreen
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen; web-share"
-              referrerPolicy="no-referrer-when-downgrade"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               title="Player"
-              style={{ border: 'none' }}
             />
           </div>
 
@@ -216,10 +148,8 @@ const Watch = () => {
             </div>
           )}
 
-          {/* Player Controls (only for Superflix) */}
-          {playerSource === 'superflix' && (
-            <PlayerControls theme={theme} onThemeChange={setTheme} />
-          )}
+          {/* Player Controls */}
+          <PlayerControls theme={theme} onThemeChange={setTheme} />
         </div>
       </main>
     </div>

@@ -8,12 +8,7 @@ interface CategoryFilterProps {
 
 const categories: { value: ContentType; label: string; emoji: string }[] = [
   { value: 'all', label: 'Todos', emoji: '🎬' },
-  { value: 'trending', label: 'Top 10', emoji: '🔥' },
-  { value: 'popular', label: 'Populares BR', emoji: '🇧🇷' },
-  { value: 'nowplaying', label: 'Em Cartaz', emoji: '🎥' },
-  { value: 'upcoming', label: 'Em Breve', emoji: '🆕' },
-  { value: 'toprated', label: 'Mais Avaliados', emoji: '⭐' },
-  { value: 'movie', label: 'Filmes', emoji: '🎞️' },
+  { value: 'movie', label: 'Filmes', emoji: '🎥' },
   { value: 'serie', label: 'Séries', emoji: '📺' },
   { value: 'anime', label: 'Animes', emoji: '🎌' },
   { value: 'dorama', label: 'Doramas', emoji: '🇰🇷' },

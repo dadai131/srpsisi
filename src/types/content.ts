@@ -1,9 +1,4 @@
-export type ContentType = 'all' | 'movie' | 'serie' | 'anime' | 'dorama' | 'trending' | 'popular' | 'nowplaying' | 'upcoming' | 'toprated';
-
-export interface Genre {
-  id: number;
-  name: string;
-}
+export type ContentType = 'all' | 'movie' | 'serie' | 'anime' | 'dorama';
 
 export interface ContentItem {
   id: string;
@@ -14,9 +9,6 @@ export interface ContentItem {
   rating?: number;
   backdrop?: string;
   overview?: string;
-  genres?: Genre[];
-  runtime?: number;
-  voteCount?: number;
 }
 
 export interface CalendarItem {
