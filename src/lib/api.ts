@@ -56,10 +56,6 @@ function createMockItem(id: string, type: ContentType, index: number): ContentIt
 
 async function fetchIdsFromSuperflix(category: string, idType: 'imdb' | 'tmdb'): Promise<string[]> {
   try {
-    const { data, error } = await supabase.functions.invoke('superflix-proxy', {
-      body: null,
-      headers: { 'Content-Type': 'application/json' },
-    });
 
     // Use URL params for GET request via query string
     const response = await fetch(
