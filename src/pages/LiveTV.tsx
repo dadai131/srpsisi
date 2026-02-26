@@ -30,7 +30,6 @@ const LiveTV = () => {
                 className="w-full h-full"
                 allowFullScreen
                 allow="autoplay; encrypted-media; picture-in-picture"
-                referrerPolicy="no-referrer"
                 style={{ border: 'none' }}
               />
             </div>
