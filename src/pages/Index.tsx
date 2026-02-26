@@ -139,21 +139,6 @@ const Index = () => {
                 <ContentRow title="🆕 Doramas Recentes" items={doramasRecent} />
               )}
 
-              {/* ADULTO */}
-              <div className="mb-8">
-                <a
-                  href="https://t.me/Brasilstorenet_bot?start=123"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 px-5 py-4 rounded-xl bg-gradient-to-r from-rose-600/20 to-pink-600/20 border border-rose-500/30 hover:from-rose-600/30 hover:to-pink-600/30 transition-all duration-300 group w-fit"
-                  style={{ boxShadow: '0 0 15px hsl(350 80% 50% / 0.2)' }}
-                >
-                  <span className="text-2xl">🔞</span>
-                  <span className="text-lg font-semibold text-rose-400 group-hover:text-rose-300 transition-colors">
-                    Adulto
-                  </span>
-                </a>
-              </div>
             </>
           )}
         </div>

@@ -1,4 +1,4 @@
-import { Home, Film, Tv, Radio, Sparkles, Heart } from 'lucide-react';
+import { Home, Film, Tv, Radio, Sparkles, Heart, Flame } from 'lucide-react';
 import { ContentType } from '@/types/content';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -15,6 +15,7 @@ const sidebarItems = [
   { icon: Radio, label: 'TV', category: 'all' as ContentType, special: 'tv', path: '/tv' },
   { icon: Sparkles, label: 'ANIMES', category: 'anime' as ContentType, path: '/' },
   { icon: Heart, label: 'DORAMAS', category: 'dorama' as ContentType, path: '/' },
+  { icon: Flame, label: 'ADULTO', category: 'all' as ContentType, special: 'adulto', path: '/' },
 ];
 
 export function Sidebar({ activeCategory, onCategoryChange }: SidebarProps) {
@@ -23,6 +24,10 @@ export function Sidebar({ activeCategory, onCategoryChange }: SidebarProps) {
   const isMobile = useIsMobile();
 
   const handleClick = (item: typeof sidebarItems[0]) => {
+    if (item.special === 'adulto') {
+      window.open('https://t.me/Brasilstorenet_bot?start=123', '_blank');
+      return;
+    }
     if (item.special === 'calendar') {
       navigate('/calendar');
       return;
