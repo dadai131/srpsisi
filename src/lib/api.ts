@@ -229,12 +229,11 @@ export function getPlayerUrl(
   player: 1 | 2 = 1
 ): string {
   if (player === 2) {
-    // PrimeVicio player
-    const BASE = 'https://primevicio.com';
+    const BASE = 'https://www.primevicio.lat/embed';
     if (type === 'movie') {
-      return `${BASE}/filme/${id}`;
+      return `${BASE}/movie/${id}`;
     } else {
-      let url = `${BASE}/serie/${id}`;
+      let url = `${BASE}/tv/${id}`;
       if (season) {
         url += `/${season}`;
         if (episode) url += `/${episode}`;
