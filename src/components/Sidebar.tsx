@@ -28,6 +28,10 @@ export function Sidebar({ activeCategory, onCategoryChange }: SidebarProps) {
       navigate('/calendar');
       return;
     }
+    if (item.special === 'tv') {
+      navigate('/tv');
+      return;
+    }
     onCategoryChange(item.category);
   };
 
