@@ -55,27 +55,13 @@ const LiveTV = () => {
   const [copied, setCopied] = useState(false);
   const isMobile = useIsMobile();
 
-  const handleDownloadM3U = () => {
-    let m3u = '#EXTM3U\n';
-    channels.forEach(ch => {
-      const catNames = ch.categories
-        .map(cid => categories.find(c => c.id === cid)?.name || '')
-        .filter(Boolean)
-        .join(';');
-      const epg = epgData[ch.id];
-      const epgInfo = epg ? ` - ${epg.title}` : '';
-      m3u += `#EXTINF:-1 tvg-id="${ch.id}" tvg-name="${ch.name}" tvg-logo="${ch.image}" group-title="${catNames}",${ch.name}${epgInfo}\n`;
-      m3u += `${ch.url}\n`;
+  const m3uUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/m3u-playlist`;
+
+  const handleCopyM3ULink = () => {
+    navigator.clipboard.writeText(m3uUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     });
-    const blob = new Blob([m3u], { type: 'application/x-mpegURL' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'index.m3u8';
-    a.click();
-    URL.revokeObjectURL(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   // Load games
@@ -212,7 +198,7 @@ const LiveTV = () => {
               )}
             </button>
             <button
-              onClick={handleDownloadM3U}
+              onClick={handleCopyM3ULink}
               disabled={channels.length === 0}
               className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all bg-card text-muted-foreground hover:text-foreground border border-border/50 disabled:opacity-50"
             >
