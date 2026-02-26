@@ -71,30 +71,6 @@ const Watch = () => {
               Voltar
             </Button>
 
-            {/* Player Switcher */}
-            <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
-              <button
-                onClick={() => setActivePlayer(1)}
-                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                  activePlayer === 1
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Superflix
-              </button>
-              <button
-                onClick={() => setActivePlayer(2)}
-                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                  activePlayer === 2
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                PrimeVicio
-              </button>
-            </div>
-
             {isSeries && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground">
@@ -109,6 +85,29 @@ const Watch = () => {
       {/* Player Section */}
       <main className="pt-14">
         <div className="container mx-auto px-4 py-6">
+          {/* Player Switcher above player */}
+          <div className="flex items-center gap-2 mb-3">
+            <button
+              onClick={() => setActivePlayer(1)}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                activePlayer === 1
+                  ? 'bg-primary text-primary-foreground shadow-md'
+                  : 'bg-secondary text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Player 1
+            </button>
+            <button
+              onClick={() => setActivePlayer(2)}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                activePlayer === 2
+                  ? 'bg-primary text-primary-foreground shadow-md'
+                  : 'bg-secondary text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Player 2
+            </button>
+          </div>
           {/* Player Container */}
           <div className="relative w-full aspect-video bg-card rounded-lg overflow-hidden shadow-2xl mb-6">
             <iframe
