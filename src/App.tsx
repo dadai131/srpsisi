@@ -8,8 +8,13 @@ import Watch from "./pages/Watch";
 import Calendar from "./pages/Calendar";
 import LiveTV from "./pages/LiveTV";
 import NotFound from "./pages/NotFound";
+import WallpaperHome from "./pages/WallpaperHome";
 
 const queryClient = new QueryClient();
+
+const isLovableDomain = 
+  window.location.hostname.includes('lovable.app') || 
+  window.location.hostname.includes('lovable.dev');
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -17,13 +22,19 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/watch/:type/:id" element={<Watch />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/tv" element={<LiveTV />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        {isLovableDomain ? (
+          <Routes>
+            <Route path="*" element={<WallpaperHome />} />
+          </Routes>
+        ) : (
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/watch/:type/:id" element={<Watch />} />
+            <Route path="/calendar" element={<Calendar />} />
+            <Route path="/tv" element={<LiveTV />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        )}
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
