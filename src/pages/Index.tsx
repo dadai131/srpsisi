@@ -41,7 +41,8 @@ const Index = () => {
   };
 
   // Split content into sections
-  const movies = content.filter(c => c.type === 'movie');
+  const movies = content.filter(c => c.type === 'movie' && !(c as any)._section);
+  const nowPlaying = content.filter(c => (c as any)._section === 'nowplaying');
   const series = content.filter(c => c.type === 'serie');
   const animes = content.filter(c => c.type === 'anime');
   const doramas = content.filter(c => c.type === 'dorama');
@@ -53,7 +54,6 @@ const Index = () => {
       <Sidebar activeCategory={activeCategory} onCategoryChange={handleCategoryChange} />
       <Header onSearch={handleSearch} />
 
-      {/* Main Content Area */}
       <main className={`${isMobile ? 'pt-14 pb-20' : 'pl-[70px] pt-14'}`}>
         {/* Hero Banner */}
         {!searchQuery && <HeroBanner item={featuredItem} />}
@@ -74,29 +74,33 @@ const Index = () => {
             <ContentRow title="Resultados da Busca" items={content} />
           ) : (
             <>
+              {nowPlaying.length > 0 && (
+                <ContentRow title="🎬 Recém Lançados nos Cinemas" items={nowPlaying.slice(0, 10)} showRank />
+              )}
               {movies.length > 0 && (
                 <ContentRow title="🔥 Top 10 Filmes da Semana" items={movies.slice(0, 10)} showRank />
               )}
               {series.length > 0 && (
-                <ContentRow title="Séries Populares" items={series} />
+                <ContentRow title="🔥 Top 10 Séries da Semana" items={series.slice(0, 10)} showRank />
               )}
               {animes.length > 0 && (
                 <ContentRow title="Animes em Destaque" items={animes} />
               )}
               {doramas.length > 0 && (
-                <ContentRow title="Doramas" items={doramas} />
+                <ContentRow title="Doramas Populares" items={doramas} />
               )}
               {movies.length > 10 && (
                 <ContentRow title="Mais Filmes" items={movies.slice(10)} />
+              )}
+              {series.length > 10 && (
+                <ContentRow title="Mais Séries" items={series.slice(10)} />
               )}
             </>
           )}
         </div>
 
-        {/* Ad Banner */}
         <AdBanner position="bottom" />
 
-        {/* Footer */}
         <footer className="border-t border-border/50 py-6">
           <div className="px-4 md:px-8 text-center">
             <p className="text-muted-foreground text-sm">
