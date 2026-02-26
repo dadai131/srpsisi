@@ -369,50 +369,55 @@ export async function fetchContent(category: ContentType = 'all', query?: string
 
 export async function fetchCalendar(): Promise<CalendarItem[]> {
   try {
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/superflix-proxy?endpoint=calendario`,
-      {
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-      }
-    );
+    // Fetch airing today and upcoming from TMDB directly (no proxy needed)
+    const today = new Date().toISOString().split('T')[0];
+    const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+    const [airingRes, upcomingRes] = await Promise.all([
+      fetch(`${TMDB_BASE}/tv/airing_today?api_key=${TMDB_API_KEY}&language=pt-BR&page=1`),
+      fetch(`${TMDB_BASE}/discover/tv?api_key=${TMDB_API_KEY}&language=pt-BR&air_date.gte=${today}&air_date.lte=${nextWeek}&sort_by=popularity.desc`),
+    ]);
+
+    const items: CalendarItem[] = [];
+
+    if (airingRes.ok) {
+      const data = await airingRes.json();
+      (data.results || []).forEach((item: TmdbResult & { first_air_date?: string }) => {
+        items.push({
+          id: item.id.toString(),
+          title: item.name || item.title || 'Sem título',
+          poster: item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : POSTER_FALLBACK,
+          releaseDate: today,
+          type: 'serie',
+          status: 'Hoje' as const,
+          backdropPath: item.backdrop_path ? `${TMDB_BACKDROP_BASE}${item.backdrop_path}` : undefined,
+          tmdbId: item.id.toString(),
+        });
+      });
     }
 
-    const data = await response.json();
-
-    if (Array.isArray(data)) {
-      return data.map((item: {
-        tmdb_id?: string;
-        imdb_id?: string;
-        title?: string;
-        poster_path?: string;
-        backdrop_path?: string;
-        air_date?: string;
-        episode_title?: string;
-        episode_number?: number;
-        season_number?: number;
-        status?: 'Atualizado' | 'Hoje' | 'Futuro' | 'Atrasado';
-      }) => ({
-        id: item.tmdb_id || item.imdb_id || '',
-        title: item.title || 'Sem título',
-        poster: item.poster_path || POSTER_FALLBACK,
-        releaseDate: item.air_date || '',
-        type: 'serie' as ContentType,
-        episodeTitle: item.episode_title,
-        episodeNumber: item.episode_number,
-        seasonNumber: item.season_number,
-        status: item.status,
-        backdropPath: item.backdrop_path,
-        tmdbId: item.tmdb_id,
-        imdbId: item.imdb_id,
-      }));
+    if (upcomingRes.ok) {
+      const data = await upcomingRes.json();
+      (data.results || []).forEach((item: TmdbResult & { first_air_date?: string }) => {
+        const airDate = item.first_air_date || '';
+        if (airDate && airDate !== today) {
+          items.push({
+            id: item.id.toString(),
+            title: item.name || item.title || 'Sem título',
+            poster: item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : POSTER_FALLBACK,
+            releaseDate: airDate,
+            type: 'serie',
+            status: 'Futuro' as const,
+            backdropPath: item.backdrop_path ? `${TMDB_BACKDROP_BASE}${item.backdrop_path}` : undefined,
+            tmdbId: item.id.toString(),
+          });
+        }
+      });
     }
 
-    return [];
+    // Sort by date
+    items.sort((a, b) => a.releaseDate.localeCompare(b.releaseDate));
+    return items;
   } catch (error) {
     console.error('Erro ao buscar calendário:', error);
     return [];

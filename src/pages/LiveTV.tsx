@@ -112,7 +112,7 @@ const LiveTV = () => {
       <Sidebar activeCategory="all" onCategoryChange={() => {}} />
       <Header onSearch={() => {}} />
 
-      <main className={`${isMobile ? 'pt-14 pb-20' : 'pl-[70px] pt-14'}`}>
+      <main className={`${isMobile ? 'pt-14 pb-24' : 'pl-[70px] pt-14'}`}>
         {/* Player */}
         {playerUrl && (
           <div className="sticky top-14 z-30 bg-black">
