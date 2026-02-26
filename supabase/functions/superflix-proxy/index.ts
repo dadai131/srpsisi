@@ -20,7 +20,7 @@ serve(async (req) => {
     let apiUrl: string;
 
     // EmbedTV endpoints
-    const embedtvEndpoints = ['jogos', 'channels', 'epg'];
+    const embedtvEndpoints = ['jogos', 'channels', 'epg', 'epgs'];
     if (embedtvEndpoints.includes(endpoint)) {
       apiUrl = `${EMBEDTV_BASE}/${endpoint}`;
     }
