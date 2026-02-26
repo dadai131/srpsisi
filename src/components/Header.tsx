@@ -47,17 +47,19 @@ export function Header({ onSearch }: HeaderProps) {
         </form>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-1 shrink-0">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground h-9 w-9"
-            asChild
+        <div className="flex items-center gap-2 shrink-0">
+          <a
+            href="https://t.me/lokifilmes"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 h-9 rounded-lg bg-[hsl(200,80%,50%)]/10 border border-[hsl(200,80%,50%)]/30 hover:bg-[hsl(200,80%,50%)]/20 transition-all duration-300 animate-pulse"
+            style={{
+              boxShadow: '0 0 12px hsl(200 80% 50% / 0.4), 0 0 24px hsl(200 80% 50% / 0.2)',
+            }}
           >
-            <a href="https://t.me/lokifilmes" target="_blank" rel="noopener noreferrer">
-              <img src={telegramIcon} alt="Telegram" className="w-5 h-5 rounded-full" />
-            </a>
-          </Button>
+            <img src={telegramIcon} alt="Telegram" className="w-5 h-5 rounded-full" />
+            <span className="text-[hsl(200,80%,60%)] text-xs font-bold hidden sm:block">Seja Membro</span>
+          </a>
           <Button
             variant="ghost"
             size="icon"

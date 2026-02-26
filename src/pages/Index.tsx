@@ -43,7 +43,12 @@ const Index = () => {
   // Split content into sections
   const movies = content.filter(c => c.type === 'movie' && !(c as any)._section);
   const nowPlaying = content.filter(c => (c as any)._section === 'nowplaying');
+  const moviesPopular = content.filter(c => (c as any)._section === 'movies_popular');
+  const moviesTopRated = content.filter(c => (c as any)._section === 'movies_top');
+  const moviesUpcoming = content.filter(c => (c as any)._section === 'movies_upcoming');
   const series = content.filter(c => c.type === 'serie' && !(c as any)._section);
+  const seriesPopular = content.filter(c => (c as any)._section === 'series_popular');
+  const seriesTopRated = content.filter(c => (c as any)._section === 'series_top');
   const seriesToday = content.filter(c => (c as any)._section === 'series_today');
   const animes = content.filter(c => c.type === 'anime' && !(c as any)._section);
   const animesTopRated = content.filter(c => (c as any)._section === 'anime_top');
@@ -61,10 +66,8 @@ const Index = () => {
       <Header onSearch={handleSearch} />
 
       <main className={`${isMobile ? 'pt-14 pb-20' : 'pl-[70px] pt-14'}`}>
-        {/* Hero Banner */}
         {!searchQuery && <HeroBanner item={featuredItem} />}
 
-        {/* Content Sections */}
         <div className="px-4 md:px-8 py-6">
           {searchQuery && (
             <p className="text-muted-foreground mb-6">
@@ -80,18 +83,38 @@ const Index = () => {
             <ContentRow title="Resultados da Busca" items={content} />
           ) : (
             <>
+              {/* FILMES */}
               {nowPlaying.length > 0 && (
-                <ContentRow title="🎬 Recém Lançados nos Cinemas" items={nowPlaying.slice(0, 10)} showRank />
+                <ContentRow title="🎬 Nos Cinemas Agora" items={nowPlaying.slice(0, 10)} showRank />
               )}
               {movies.length > 0 && (
                 <ContentRow title="🔥 Top 10 Filmes da Semana" items={movies.slice(0, 10)} showRank />
               )}
+              {moviesPopular.length > 0 && (
+                <ContentRow title="🎥 Filmes Populares" items={moviesPopular} />
+              )}
+              {moviesTopRated.length > 0 && (
+                <ContentRow title="⭐ Filmes Mais Bem Avaliados" items={moviesTopRated} />
+              )}
+              {moviesUpcoming.length > 0 && (
+                <ContentRow title="📅 Em Breve nos Cinemas" items={moviesUpcoming} />
+              )}
+
+              {/* SÉRIES */}
               {series.length > 0 && (
                 <ContentRow title="🔥 Top 10 Séries da Semana" items={series.slice(0, 10)} showRank />
               )}
               {seriesToday.length > 0 && (
                 <ContentRow title="📺 Séries Lançadas Hoje" items={seriesToday} />
               )}
+              {seriesPopular.length > 0 && (
+                <ContentRow title="🎬 Séries Populares" items={seriesPopular} />
+              )}
+              {seriesTopRated.length > 0 && (
+                <ContentRow title="⭐ Séries Mais Bem Avaliadas" items={seriesTopRated} />
+              )}
+
+              {/* ANIMES */}
               {animesToday.length > 0 && (
                 <ContentRow title="📺 Animes Lançados Hoje" items={animesToday} />
               )}
@@ -104,6 +127,8 @@ const Index = () => {
               {animesRecent.length > 0 && (
                 <ContentRow title="🆕 Animes Recentes" items={animesRecent} />
               )}
+
+              {/* DORAMAS */}
               {doramas.length > 0 && (
                 <ContentRow title="🔥 Doramas Populares" items={doramas} />
               )}
