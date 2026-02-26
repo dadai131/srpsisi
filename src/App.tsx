@@ -14,7 +14,8 @@ const queryClient = new QueryClient();
 
 const isLovableDomain = 
   window.location.hostname.includes('lovable.app') || 
-  window.location.hostname.includes('lovable.dev');
+  window.location.hostname.includes('lovable.dev') ||
+  window.location.hostname.includes('lovableproject.com');
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
