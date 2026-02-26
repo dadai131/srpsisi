@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Search, Send, Calendar } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import logoImg from '@/assets/logo.png';
 import { Button } from '@/components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -24,9 +25,7 @@ export function Header({ onSearch }: HeaderProps) {
       <div className="flex items-center justify-between h-14 px-4 md:px-6">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-green-600 flex items-center justify-center">
-            <span className="text-primary-foreground font-black text-sm">L</span>
-          </div>
+          <img src={logoImg} alt="LokiFilmes" className="w-9 h-9 rounded-lg object-cover" />
           <span className="text-lg font-bold text-foreground hidden sm:block">
             Loki<span className="text-green-500">Filmes</span>
           </span>
