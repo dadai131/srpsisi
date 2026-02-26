@@ -1,6 +1,6 @@
 import { Home, Film, Tv, Radio, Sparkles, Heart, Ticket, Calendar } from 'lucide-react';
 import { ContentType } from '@/types/content';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface SidebarProps {
@@ -9,18 +9,18 @@ interface SidebarProps {
 }
 
 const sidebarItems = [
-  { icon: Home, label: 'HOME', category: 'all' as ContentType },
-  { icon: Film, label: 'FILMES', category: 'movie' as ContentType },
-  { icon: Tv, label: 'SÉRIES', category: 'serie' as ContentType },
-  { icon: Radio, label: 'TV AO VIVO', category: 'all' as ContentType, special: 'tv' },
-  { icon: Sparkles, label: 'ANIMES', category: 'anime' as ContentType },
-  { icon: Heart, label: 'DORAMAS', category: 'dorama' as ContentType },
-  { icon: Ticket, label: 'TICKET', category: 'all' as ContentType, special: 'ticket' },
-  { icon: Calendar, label: 'AGENDA', category: 'all' as ContentType, special: 'calendar' },
+  { icon: Home, label: 'HOME', category: 'all' as ContentType, path: '/' },
+  { icon: Film, label: 'FILMES', category: 'movie' as ContentType, path: '/' },
+  { icon: Tv, label: 'SÉRIES', category: 'serie' as ContentType, path: '/' },
+  { icon: Radio, label: 'TV', category: 'all' as ContentType, special: 'tv', path: '/tv' },
+  { icon: Sparkles, label: 'ANIMES', category: 'anime' as ContentType, path: '/' },
+  { icon: Heart, label: 'DORAMAS', category: 'dorama' as ContentType, path: '/' },
+  { icon: Calendar, label: 'AGENDA', category: 'all' as ContentType, special: 'calendar', path: '/calendar' },
 ];
 
 export function Sidebar({ activeCategory, onCategoryChange }: SidebarProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const isMobile = useIsMobile();
 
   const handleClick = (item: typeof sidebarItems[0]) => {
@@ -32,24 +32,34 @@ export function Sidebar({ activeCategory, onCategoryChange }: SidebarProps) {
       navigate('/tv');
       return;
     }
+    if (location.pathname !== '/') {
+      navigate('/');
+    }
     onCategoryChange(item.category);
+  };
+
+  const isItemActive = (item: typeof sidebarItems[0]) => {
+    if (item.special === 'tv') return location.pathname === '/tv';
+    if (item.special === 'calendar') return location.pathname === '/calendar';
+    if (location.pathname !== '/') return false;
+    return activeCategory === item.category;
   };
 
   if (isMobile) {
     return (
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border/50 flex justify-around items-center h-16 px-1">
-        {sidebarItems.slice(0, 5).map((item) => {
-          const isActive = !item.special && activeCategory === item.category;
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border/50 flex items-center h-14 px-1 overflow-x-auto scrollbar-hide">
+        {sidebarItems.map((item) => {
+          const isActive = isItemActive(item);
           return (
             <button
               key={item.label}
               onClick={() => handleClick(item)}
-              className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg transition-colors ${
-                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+              className={`flex flex-col items-center gap-0.5 py-1.5 px-3 flex-shrink-0 rounded-lg transition-colors ${
+                isActive ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
               <item.icon className="w-5 h-5" />
-              <span className="text-[10px] font-medium">{item.label}</span>
+              <span className="text-[9px] font-semibold whitespace-nowrap">{item.label}</span>
             </button>
           );
         })}
@@ -60,15 +70,13 @@ export function Sidebar({ activeCategory, onCategoryChange }: SidebarProps) {
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-[70px] bg-background border-r border-border/50 z-50 flex flex-col items-center pt-20 gap-1">
       {sidebarItems.map((item) => {
-        const isActive = !item.special && activeCategory === item.category;
+        const isActive = isItemActive(item);
         return (
           <button
             key={item.label}
             onClick={() => handleClick(item)}
             className={`flex flex-col items-center gap-1 w-full py-3 px-1 transition-colors relative ${
-              isActive
-                ? 'text-primary'
-                : 'text-muted-foreground hover:text-foreground'
+              isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {isActive && (
