@@ -499,36 +499,34 @@ export async function fetchTVMazeSeasons(tmdbId: string): Promise<SeasonInfo[]> 
     const showData = await lookupRes.json();
     const tvmazeId = showData.id;
 
-    // Step 3: Fetch seasons from TVmaze
-    const seasonsRes = await fetch(
-      `https://api.tvmaze.com/shows/${tvmazeId}/seasons`
-    );
+    // Step 3: Fetch seasons and episodes in parallel (2 requests only)
+    const [seasonsRes, episodesRes] = await Promise.all([
+      fetch(`https://api.tvmaze.com/shows/${tvmazeId}/seasons`),
+      fetch(`https://api.tvmaze.com/shows/${tvmazeId}/episodes?specials=0`),
+    ]);
+
     if (!seasonsRes.ok) throw new Error(`TVmaze seasons ${seasonsRes.status}`);
     const seasonsData = await seasonsRes.json();
 
-    // Filter out specials (season 0)
-    const validSeasons = seasonsData.filter((s: any) => s.number > 0);
-
-    // Step 4: For seasons without episodeOrder, fetch episode count
-    const seasons: SeasonInfo[] = await Promise.all(
-      validSeasons.map(async (s: any) => {
-        let epCount = s.episodeOrder;
-        if (!epCount || epCount === 0) {
-          try {
-            const epRes = await fetch(`https://api.tvmaze.com/seasons/${s.id}/episodes`);
-            if (epRes.ok) {
-              const episodes = await epRes.json();
-              epCount = episodes.length;
-            }
-          } catch { /* fallback to 0 */ }
+    // Count episodes per season from the episodes list
+    const epCountMap: Record<number, number> = {};
+    if (episodesRes.ok) {
+      const episodesData = await episodesRes.json();
+      for (const ep of episodesData) {
+        if (ep.season && ep.season > 0) {
+          epCountMap[ep.season] = (epCountMap[ep.season] || 0) + 1;
         }
-        return {
-          season_number: s.number,
-          episode_count: epCount || 0,
-          name: s.name || `Temporada ${s.number}`,
-        };
-      })
-    );
+      }
+    }
+
+    // Filter out specials (season 0) and merge episode counts
+    const seasons: SeasonInfo[] = seasonsData
+      .filter((s: any) => s.number > 0)
+      .map((s: any) => ({
+        season_number: s.number,
+        episode_count: s.episodeOrder || epCountMap[s.number] || 0,
+        name: s.name || `Temporada ${s.number}`,
+      }));
 
     return seasons;
   } catch (e) {
