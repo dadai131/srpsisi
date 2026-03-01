@@ -506,14 +506,29 @@ export async function fetchTVMazeSeasons(tmdbId: string): Promise<SeasonInfo[]> 
     if (!seasonsRes.ok) throw new Error(`TVmaze seasons ${seasonsRes.status}`);
     const seasonsData = await seasonsRes.json();
 
-    // Convert and filter out specials (season 0)
-    const seasons: SeasonInfo[] = seasonsData
-      .filter((s: any) => s.number > 0)
-      .map((s: any) => ({
-        season_number: s.number,
-        episode_count: s.episodeOrder || 0,
-        name: s.name || `Temporada ${s.number}`,
-      }));
+    // Filter out specials (season 0)
+    const validSeasons = seasonsData.filter((s: any) => s.number > 0);
+
+    // Step 4: For seasons without episodeOrder, fetch episode count
+    const seasons: SeasonInfo[] = await Promise.all(
+      validSeasons.map(async (s: any) => {
+        let epCount = s.episodeOrder;
+        if (!epCount || epCount === 0) {
+          try {
+            const epRes = await fetch(`https://api.tvmaze.com/seasons/${s.id}/episodes`);
+            if (epRes.ok) {
+              const episodes = await epRes.json();
+              epCount = episodes.length;
+            }
+          } catch { /* fallback to 0 */ }
+        }
+        return {
+          season_number: s.number,
+          episode_count: epCount || 0,
+          name: s.name || `Temporada ${s.number}`,
+        };
+      })
+    );
 
     return seasons;
   } catch (e) {
