@@ -179,7 +179,6 @@ const Watch = () => {
               frameBorder="0"
               scrolling="no"
               allow="autoplay; encrypted-media; picture-in-picture"
-              referrerPolicy="origin"
               title="Player"
             />
           </div>
