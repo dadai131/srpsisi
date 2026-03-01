@@ -170,7 +170,7 @@ const Watch = () => {
           </div>
 
           {/* Player Container */}
-          <div className="relative w-full bg-card rounded-lg overflow-hidden shadow-2xl mb-6" style={{ minHeight: '80vh' }}>
+          <div className="relative w-full bg-card rounded-lg overflow-hidden shadow-2xl mb-6 aspect-video">
             <iframe
               key={`${activePlayer}-${id}-${season}-${episode}`}
               src={playerUrl}
