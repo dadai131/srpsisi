@@ -471,3 +471,53 @@ export function getPlayerUrl(
 
   return url;
 }
+
+// ============= TVmaze Integration =============
+
+export interface SeasonInfo {
+  season_number: number;
+  episode_count: number;
+  name: string;
+}
+
+export async function fetchTVMazeSeasons(tmdbId: string): Promise<SeasonInfo[]> {
+  try {
+    // Step 1: Get IMDB ID from TMDB
+    const extRes = await fetch(
+      `${TMDB_BASE}/tv/${tmdbId}/external_ids?api_key=${TMDB_API_KEY}`
+    );
+    if (!extRes.ok) throw new Error(`TMDB external_ids ${extRes.status}`);
+    const extData = await extRes.json();
+    const imdbId = extData.imdb_id;
+    if (!imdbId) throw new Error('No IMDB ID found');
+
+    // Step 2: Lookup show on TVmaze via IMDB ID
+    const lookupRes = await fetch(
+      `https://api.tvmaze.com/lookup/shows?imdb=${imdbId}`
+    );
+    if (!lookupRes.ok) throw new Error(`TVmaze lookup ${lookupRes.status}`);
+    const showData = await lookupRes.json();
+    const tvmazeId = showData.id;
+
+    // Step 3: Fetch seasons from TVmaze
+    const seasonsRes = await fetch(
+      `https://api.tvmaze.com/shows/${tvmazeId}/seasons`
+    );
+    if (!seasonsRes.ok) throw new Error(`TVmaze seasons ${seasonsRes.status}`);
+    const seasonsData = await seasonsRes.json();
+
+    // Convert and filter out specials (season 0)
+    const seasons: SeasonInfo[] = seasonsData
+      .filter((s: any) => s.number > 0)
+      .map((s: any) => ({
+        season_number: s.number,
+        episode_count: s.episodeOrder || 0,
+        name: s.name || `Temporada ${s.number}`,
+      }));
+
+    return seasons;
+  } catch (e) {
+    console.error('Erro TVmaze seasons:', e);
+    return [];
+  }
+}
