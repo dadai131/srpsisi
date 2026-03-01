@@ -26,6 +26,7 @@ const Watch = () => {
   const [seasons, setSeasons] = useState<SeasonInfo[]>([]);
   const [episodeCount, setEpisodeCount] = useState(1);
   const [loadingSeasons, setLoadingSeasons] = useState(false);
+  const [iframeLoading, setIframeLoading] = useState(false);
   const [theme, setTheme] = useState<PlayerTheme>({
     color: 'e50914',
     transparent: false,
@@ -64,7 +65,11 @@ const Watch = () => {
       setEpisodeCount(current.episode_count);
       if (episode > current.episode_count) setEpisode(1);
     }
-  }, [season, seasons]);
+    // Force iframe reload on season/episode change
+    setIframeLoading(true);
+    const timer = setTimeout(() => setIframeLoading(false), 100);
+    return () => clearTimeout(timer);
+  }, [season, episode, seasons]);
 
   useEffect(() => {
     if (isSeries) {
@@ -171,16 +176,22 @@ const Watch = () => {
 
           {/* Player Container */}
           <div className="relative w-full bg-card rounded-lg overflow-hidden shadow-2xl mb-6 aspect-video">
-            <iframe
-              key={`${activePlayer}-${id}-${season}-${episode}`}
-              src={playerUrl}
-              className="absolute inset-0 w-full h-full border-0"
-              allowFullScreen
-              frameBorder="0"
-              scrolling="no"
-              allow="autoplay; encrypted-media; picture-in-picture"
-              title="Player"
-            />
+            {iframeLoading ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-card">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <iframe
+                key={`${activePlayer}-${id}-${season}-${episode}-${Date.now()}`}
+                src={playerUrl}
+                className="absolute inset-0 w-full h-full border-0"
+                allowFullScreen
+                frameBorder="0"
+                scrolling="no"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                title="Player"
+              />
+            )}
           </div>
 
           {/* Episode Navigation (for series) */}
