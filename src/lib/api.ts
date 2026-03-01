@@ -447,7 +447,7 @@ export function getPlayerUrl(
   }
 
   // Superflix player (default)
-  const API_BASE = 'https://superflixapi.buzz';
+  const API_BASE = 'https://superflixapi.help';
   let url = '';
   
   if (type === 'movie') {
