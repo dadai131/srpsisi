@@ -4,16 +4,10 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PlayerControls } from '@/components/PlayerControls';
 import { PlayerTheme } from '@/types/content';
-import { getPlayerUrl } from '@/lib/api';
+import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo } from '@/lib/api';
 
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY || '690cf0eddb8284392e1a4e3a9dae4b09';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
-
-interface SeasonInfo {
-  season_number: number;
-  episode_count: number;
-  name: string;
-}
 
 const Watch = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
@@ -35,26 +29,41 @@ const Watch = () => {
 
   const isSeries = type === 'serie' || type === 'anime' || type === 'dorama';
 
-  // Fetch seasons from TMDB
+  // Fetch seasons from TMDB + TVmaze in parallel
   useEffect(() => {
     if (!isSeries || !id) return;
     setLoadingSeasons(true);
-    fetch(`${TMDB_BASE}/tv/${id}?api_key=${TMDB_API_KEY}&language=pt-BR`)
-      .then(res => res.json())
-      .then(data => {
-        const tvSeasons: SeasonInfo[] = (data.seasons || [])
-          .filter((s: any) => s.season_number > 0)
-          .map((s: any) => ({
-            season_number: s.season_number,
-            episode_count: s.episode_count,
-            name: s.name,
-          }));
-        setSeasons(tvSeasons);
-        // Set episode count for current season
-        const current = tvSeasons.find(s => s.season_number === season);
+
+    const fetchTmdb = async (): Promise<SeasonInfo[]> => {
+      const res = await fetch(`${TMDB_BASE}/tv/${id}?api_key=${TMDB_API_KEY}&language=pt-BR`);
+      const data = await res.json();
+      return (data.seasons || [])
+        .filter((s: any) => s.season_number > 0)
+        .map((s: any) => ({
+          season_number: s.season_number,
+          episode_count: s.episode_count,
+          name: s.name,
+        }));
+    };
+
+    Promise.allSettled([fetchTmdb(), fetchTVMazeSeasons(id)])
+      .then(([tmdbResult, tvmazeResult]) => {
+        const tmdbSeasons = tmdbResult.status === 'fulfilled' ? tmdbResult.value : [];
+        const tvmazeSeasons = tvmazeResult.status === 'fulfilled' ? tvmazeResult.value : [];
+
+        let chosen: SeasonInfo[];
+        if (tvmazeSeasons.length > tmdbSeasons.length) {
+          chosen = tvmazeSeasons;
+          console.log(`Fonte de temporadas: TVmaze (${tvmazeSeasons.length} vs TMDB ${tmdbSeasons.length})`);
+        } else {
+          chosen = tmdbSeasons.length > 0 ? tmdbSeasons : tvmazeSeasons;
+          console.log(`Fonte de temporadas: ${tmdbSeasons.length > 0 ? 'TMDB' : 'TVmaze'} (TMDB ${tmdbSeasons.length}, TVmaze ${tvmazeSeasons.length})`);
+        }
+
+        setSeasons(chosen);
+        const current = chosen.find(s => s.season_number === season);
         if (current) setEpisodeCount(current.episode_count);
       })
-      .catch(e => console.error('Erro TMDB seasons:', e))
       .finally(() => setLoadingSeasons(false));
   }, [id, isSeries]);
 
