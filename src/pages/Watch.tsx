@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PlayerControls } from '@/components/PlayerControls';
 import { PlayerTheme } from '@/types/content';
@@ -20,6 +20,7 @@ const Watch = () => {
   const [seasons, setSeasons] = useState<SeasonInfo[]>([]);
   const [episodeCount, setEpisodeCount] = useState(1);
   const [loadingSeasons, setLoadingSeasons] = useState(false);
+  const [seasonSource, setSeasonSource] = useState<'TMDB' | 'TVmaze' | ''>('');
   const [iframeLoading, setIframeLoading] = useState(false);
   const [theme, setTheme] = useState<PlayerTheme>({
     color: 'e50914',
@@ -52,14 +53,18 @@ const Watch = () => {
         const tvmazeSeasons = tvmazeResult.status === 'fulfilled' ? tvmazeResult.value : [];
 
         let chosen: SeasonInfo[];
+        let source: 'TMDB' | 'TVmaze';
         if (tvmazeSeasons.length > tmdbSeasons.length) {
           chosen = tvmazeSeasons;
+          source = 'TVmaze';
           console.log(`Fonte de temporadas: TVmaze (${tvmazeSeasons.length} vs TMDB ${tmdbSeasons.length})`);
         } else {
           chosen = tmdbSeasons.length > 0 ? tmdbSeasons : tvmazeSeasons;
-          console.log(`Fonte de temporadas: ${tmdbSeasons.length > 0 ? 'TMDB' : 'TVmaze'} (TMDB ${tmdbSeasons.length}, TVmaze ${tvmazeSeasons.length})`);
+          source = tmdbSeasons.length > 0 ? 'TMDB' : 'TVmaze';
+          console.log(`Fonte de temporadas: ${source} (TMDB ${tmdbSeasons.length}, TVmaze ${tvmazeSeasons.length})`);
         }
 
+        setSeasonSource(source);
         setSeasons(chosen);
         const current = chosen.find(s => s.season_number === season);
         if (current) setEpisodeCount(current.episode_count);
@@ -158,7 +163,7 @@ const Watch = () => {
 
       {/* Player Section */}
       <main className="pt-14">
-        <div className="container mx-auto px-4 py-6">
+        <div className="max-w-6xl mx-auto px-4 py-6">
           {/* Player Switcher above player */}
           <div className="flex items-center gap-2 mb-3">
             <button
@@ -184,7 +189,7 @@ const Watch = () => {
           </div>
 
           {/* Player Container */}
-          <div className="relative w-full bg-card rounded-lg overflow-hidden shadow-2xl mb-6 aspect-video">
+          <div className="relative w-full bg-card rounded-lg overflow-hidden shadow-2xl mb-6" style={{ paddingBottom: '50%', minHeight: '400px' }}>
             {iframeLoading ? (
               <div className="absolute inset-0 flex items-center justify-center bg-card">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -252,6 +257,13 @@ const Watch = () => {
                         ))}
                       </select>
                     </div>
+
+                    {seasonSource && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground bg-secondary/50 px-2 py-1 rounded">
+                        <Database className="w-3 h-3" />
+                        <span>{seasonSource}</span>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
