@@ -174,9 +174,12 @@ const Watch = () => {
             <iframe
               key={`${activePlayer}-${id}-${season}-${episode}`}
               src={playerUrl}
-              className="absolute inset-0 w-full h-full"
+              className="absolute inset-0 w-full h-full border-0"
               allowFullScreen
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              frameBorder="0"
+              scrolling="no"
+              allow="autoplay; encrypted-media; picture-in-picture"
+              referrerPolicy="origin"
               title="Player"
             />
           </div>
