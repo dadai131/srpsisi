@@ -4,13 +4,12 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Database } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { PlayerControls } from '@/components/PlayerControls';
 import { PlayerTheme } from '@/types/content';
-import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo } from '@/lib/api';
-
-const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY || '690cf0eddb8284392e1a4e3a9dae4b09';
-const TMDB_BASE = 'https://api.themoviedb.org/3';
+import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl } from '@/lib/api';
 
 const Watch = () => {
-  const { type, id } = useParams<{ type: string; id: string }>();
+  const { type, id: rawId } = useParams<{ type: string; id: string }>();
+  // Só aceitamos IDs numéricos do TMDB — evita injeção de URL nos players/API
+  const id = /^\d{1,12}$/.test(rawId ?? '') ? String(parseInt(rawId!, 10)) : '';
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   
@@ -36,7 +35,7 @@ const Watch = () => {
     setLoadingSeasons(true);
 
     const fetchTmdb = async (): Promise<SeasonInfo[]> => {
-      const res = await fetch(`${TMDB_BASE}/tv/${id}?api_key=${TMDB_API_KEY}&language=pt-BR`);
+      const res = await fetch(tmdbUrl(`/tv/${id}`, 'language=pt-BR'));
       const data = await res.json();
       return (data.seasons || [])
         .filter((s: any) => s.season_number > 0)
@@ -196,12 +195,13 @@ const Watch = () => {
               </div>
             ) : (
               <iframe
-                key={`${activePlayer}-${id}-${season}-${episode}-${Date.now()}`}
+                key={`${activePlayer}-${id}-${season}-${episode}`}
                 src={playerUrl}
                 className="absolute inset-0 w-full h-full border-0"
                 allowFullScreen
                 frameBorder="0"
                 scrolling="no"
+                referrerPolicy="no-referrer-when-downgrade"
                 allow="autoplay; encrypted-media; picture-in-picture"
                 title="Player"
               />
