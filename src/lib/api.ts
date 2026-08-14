@@ -1,7 +1,13 @@
 import { ContentItem, ContentType, CalendarItem } from '@/types/content';
 
-const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY || '690cf0eddb8284392e1a4e3a9dae4b09';
-const TMDB_BASE = 'https://api.themoviedb.org/3';
+// A chave da API TMDB fica somente no backend (edge function "tmdb").
+// O front chama sempre o proxy, nunca a TMDB diretamente.
+const TMDB_PROXY = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tmdb`;
+
+export function tmdbUrl(path: string, query: string = ''): string {
+  const qs = query ? `&${query.replace(/^[?&]/, '')}` : '';
+  return `${TMDB_PROXY}?path=${encodeURIComponent(path)}${qs}`;
+}
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
 const TMDB_BACKDROP_BASE = 'https://image.tmdb.org/t/p/w1280';
 
@@ -21,7 +27,7 @@ interface TmdbResult {
 async function fetchTmdbTrending(mediaType: 'movie' | 'tv'): Promise<TmdbResult[]> {
   try {
     const res = await fetch(
-      `${TMDB_BASE}/trending/${mediaType}/week?api_key=${TMDB_API_KEY}&language=pt-BR`
+      tmdbUrl(`/trending/${mediaType}/week`, `language=pt-BR`)
     );
     if (!res.ok) throw new Error(`TMDB ${res.status}`);
     const data = await res.json();
@@ -36,7 +42,7 @@ async function fetchTmdbTrending(mediaType: 'movie' | 'tv'): Promise<TmdbResult[
 async function fetchTmdbPopular(mediaType: 'movie' | 'tv', page = 1): Promise<TmdbResult[]> {
   try {
     const res = await fetch(
-      `${TMDB_BASE}/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=pt-BR&page=${page}`
+      tmdbUrl(`/${mediaType}/popular`, `language=pt-BR&page=${page}`)
     );
     if (!res.ok) throw new Error(`TMDB ${res.status}`);
     const data = await res.json();
@@ -51,7 +57,7 @@ async function fetchTmdbPopular(mediaType: 'movie' | 'tv', page = 1): Promise<Tm
 async function fetchTmdbNowPlaying(): Promise<TmdbResult[]> {
   try {
     const res = await fetch(
-      `${TMDB_BASE}/movie/now_playing?api_key=${TMDB_API_KEY}&language=pt-BR&region=BR`
+      tmdbUrl(`/movie/now_playing`, `language=pt-BR&region=BR`)
     );
     if (!res.ok) throw new Error(`TMDB ${res.status}`);
     const data = await res.json();
@@ -66,7 +72,7 @@ async function fetchTmdbNowPlaying(): Promise<TmdbResult[]> {
 async function fetchTmdbTopRatedMovies(): Promise<TmdbResult[]> {
   try {
     const res = await fetch(
-      `${TMDB_BASE}/movie/top_rated?api_key=${TMDB_API_KEY}&language=pt-BR&region=BR`
+      tmdbUrl(`/movie/top_rated`, `language=pt-BR&region=BR`)
     );
     if (!res.ok) throw new Error(`TMDB ${res.status}`);
     const data = await res.json();
@@ -81,7 +87,7 @@ async function fetchTmdbTopRatedMovies(): Promise<TmdbResult[]> {
 async function fetchTmdbUpcomingMovies(): Promise<TmdbResult[]> {
   try {
     const res = await fetch(
-      `${TMDB_BASE}/movie/upcoming?api_key=${TMDB_API_KEY}&language=pt-BR&region=BR`
+      tmdbUrl(`/movie/upcoming`, `language=pt-BR&region=BR`)
     );
     if (!res.ok) throw new Error(`TMDB ${res.status}`);
     const data = await res.json();
@@ -96,7 +102,7 @@ async function fetchTmdbUpcomingMovies(): Promise<TmdbResult[]> {
 async function fetchTmdbSeriesAiringToday(): Promise<TmdbResult[]> {
   try {
     const res = await fetch(
-      `${TMDB_BASE}/tv/airing_today?api_key=${TMDB_API_KEY}&language=pt-BR`
+      tmdbUrl(`/tv/airing_today`, `language=pt-BR`)
     );
     if (!res.ok) throw new Error(`TMDB ${res.status}`);
     const data = await res.json();
@@ -111,7 +117,7 @@ async function fetchTmdbSeriesAiringToday(): Promise<TmdbResult[]> {
 async function fetchTmdbTopRatedSeries(): Promise<TmdbResult[]> {
   try {
     const res = await fetch(
-      `${TMDB_BASE}/tv/top_rated?api_key=${TMDB_API_KEY}&language=pt-BR`
+      tmdbUrl(`/tv/top_rated`, `language=pt-BR`)
     );
     if (!res.ok) throw new Error(`TMDB ${res.status}`);
     const data = await res.json();
@@ -127,7 +133,7 @@ async function fetchTmdbAnimeAiringToday(): Promise<TmdbResult[]> {
   try {
     const today = new Date().toISOString().split('T')[0];
     const res = await fetch(
-      `${TMDB_BASE}/discover/tv?api_key=${TMDB_API_KEY}&language=pt-BR&with_genres=16&with_origin_country=JP&air_date.gte=${today}&air_date.lte=${today}&sort_by=popularity.desc`
+      tmdbUrl(`/discover/tv`, `language=pt-BR&with_genres=16&with_origin_country=JP&air_date.gte=${today}&air_date.lte=${today}&sort_by=popularity.desc`)
     );
     if (!res.ok) throw new Error(`TMDB ${res.status}`);
     const data = await res.json();
@@ -142,7 +148,7 @@ async function fetchTmdbAnimeAiringToday(): Promise<TmdbResult[]> {
 async function fetchTmdbAnime(sort: string = 'popularity.desc'): Promise<TmdbResult[]> {
   try {
     const res = await fetch(
-      `${TMDB_BASE}/discover/tv?api_key=${TMDB_API_KEY}&language=pt-BR&with_genres=16&with_origin_country=JP&sort_by=${sort}`
+      tmdbUrl(`/discover/tv`, `language=pt-BR&with_genres=16&with_origin_country=JP&sort_by=${sort}`)
     );
     if (!res.ok) throw new Error(`TMDB ${res.status}`);
     const data = await res.json();
@@ -163,7 +169,7 @@ async function fetchTmdbAnimeRecent(): Promise<TmdbResult[]> {
   try {
     const today = new Date().toISOString().split('T')[0];
     const res = await fetch(
-      `${TMDB_BASE}/discover/tv?api_key=${TMDB_API_KEY}&language=pt-BR&with_genres=16&with_origin_country=JP&sort_by=first_air_date.desc&first_air_date.lte=${today}&vote_count.gte=10`
+      tmdbUrl(`/discover/tv`, `language=pt-BR&with_genres=16&with_origin_country=JP&sort_by=first_air_date.desc&first_air_date.lte=${today}&vote_count.gte=10`)
     );
     if (!res.ok) throw new Error(`TMDB ${res.status}`);
     const data = await res.json();
@@ -178,7 +184,7 @@ async function fetchTmdbAnimeRecent(): Promise<TmdbResult[]> {
 async function fetchTmdbDorama(sort: string = 'popularity.desc'): Promise<TmdbResult[]> {
   try {
     const res = await fetch(
-      `${TMDB_BASE}/discover/tv?api_key=${TMDB_API_KEY}&language=pt-BR&with_origin_country=KR&sort_by=${sort}`
+      tmdbUrl(`/discover/tv`, `language=pt-BR&with_origin_country=KR&sort_by=${sort}`)
     );
     if (!res.ok) throw new Error(`TMDB ${res.status}`);
     const data = await res.json();
@@ -199,7 +205,7 @@ async function fetchTmdbDoramaRecent(): Promise<TmdbResult[]> {
   try {
     const today = new Date().toISOString().split('T')[0];
     const res = await fetch(
-      `${TMDB_BASE}/discover/tv?api_key=${TMDB_API_KEY}&language=pt-BR&with_origin_country=KR&sort_by=first_air_date.desc&first_air_date.lte=${today}&vote_count.gte=10`
+      tmdbUrl(`/discover/tv`, `language=pt-BR&with_origin_country=KR&sort_by=first_air_date.desc&first_air_date.lte=${today}&vote_count.gte=10`)
     );
     if (!res.ok) throw new Error(`TMDB ${res.status}`);
     const data = await res.json();
@@ -233,7 +239,7 @@ export async function fetchContent(category: ContentType = 'all', query?: string
     if (query) {
       // Search TMDB
       const res = await fetch(
-        `${TMDB_BASE}/search/multi?api_key=${TMDB_API_KEY}&language=pt-BR&query=${encodeURIComponent(query)}`
+        tmdbUrl(`/search/multi`, `language=pt-BR&query=${encodeURIComponent(query)}`)
       );
       if (res.ok) {
         const data = await res.json();
@@ -374,8 +380,8 @@ export async function fetchCalendar(): Promise<CalendarItem[]> {
     const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
 
     const [airingRes, upcomingRes] = await Promise.all([
-      fetch(`${TMDB_BASE}/tv/airing_today?api_key=${TMDB_API_KEY}&language=pt-BR&page=1`),
-      fetch(`${TMDB_BASE}/discover/tv?api_key=${TMDB_API_KEY}&language=pt-BR&air_date.gte=${today}&air_date.lte=${nextWeek}&sort_by=popularity.desc`),
+      fetch(tmdbUrl(`/tv/airing_today`, `language=pt-BR&page=1`)),
+      fetch(tmdbUrl(`/discover/tv`, `language=pt-BR&air_date.gte=${today}&air_date.lte=${nextWeek}&sort_by=popularity.desc`)),
     ]);
 
     const items: CalendarItem[] = [];
@@ -484,7 +490,7 @@ export async function fetchTVMazeSeasons(tmdbId: string): Promise<SeasonInfo[]> 
   try {
     // Step 1: Get IMDB ID from TMDB
     const extRes = await fetch(
-      `${TMDB_BASE}/tv/${tmdbId}/external_ids?api_key=${TMDB_API_KEY}`
+      tmdbUrl(`/tv/${tmdbId}/external_ids`)
     );
     if (!extRes.ok) throw new Error(`TMDB external_ids ${extRes.status}`);
     const extData = await extRes.json();

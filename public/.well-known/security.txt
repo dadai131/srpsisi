@@ -1,0 +1,3 @@
+Contact: mailto:security@lokifilms.qzz.io
+Preferred-Languages: pt-BR, en
+Canonical: https://lokifilms.qzz.io/.well-known/security.txt
