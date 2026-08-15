@@ -169,3 +169,20 @@
     display: none;
   }
 }
+
+/* Hide Lovable "Made with Lovable" badge completely */
+#lovable-badge,
+#lovable-badge-cta,
+#lovable-badge-text,
+#lovable-badge-divider,
+#lovable-badge-close,
+aside[role="complementary"][aria-label="Edit with Lovable"],
+a[id^="lovable-badge"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
