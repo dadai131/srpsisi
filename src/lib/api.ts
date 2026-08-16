@@ -470,22 +470,14 @@ export function getPlayerUrl(
   }
 
   if (player === 2) {
-    // Para o Player 2, tentamos extrair o stream direto da Superflix e retornar um link de proxy
-    // se possível, ou retornar o player da PrimeVicio como fallback.
-    // Como a extração é assíncrona e esta função é síncrona, retornamos o player secundário normal
-    // mas o componente Watch agora poderá tentar usar o stream direto se o Player 2 for selecionado.
-    const PRIME_BASE = 'https://www.primevicio.lat/embed';
-    if (type === 'movie') {
-      return `${PRIME_BASE}/movie/${id}`;
-    } else {
-      let url = `${PRIME_BASE}/tv/${id}`;
-      if (season) {
-        url += `/${season}`;
-        if (episode) url += `/${episode}`;
-      }
-      return url;
-    }
+    // Para o Player 2, tentamos a extração direta da Superflix.
+    // Se a extração falhar, o componente Watch tentará carregar o player alternativo (Superflix original ou outro).
+    // O fallback real ocorre no Watch.tsx via directStreamUrl.
+    return superflixUrl;
   }
+
+  return superflixUrl;
+}
 
   return superflixUrl;
 }

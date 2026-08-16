@@ -14,9 +14,8 @@ serve(async (req) => {
     const { url } = await req.json()
     if (!url) return new Response(JSON.stringify({ error: 'URL is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
-    console.log('Fetching:', url)
+    console.log('Fetching Superflix page:', url)
     
-    // Simular um navegador para evitar bloqueios básicos
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -26,21 +25,28 @@ serve(async (req) => {
 
     const html = await response.text()
     
-    // Tenta encontrar o arquivo master.m3u8 ou .mp4 no HTML
-    // Geralmente players embed escondem isso em scripts
-    const m3u8Regex = /"(https?:\/\/[^"]+\.m3u8[^"]*)"/i
-    const mp4Regex = /"(https?:\/\/[^"]+\.mp4[^"]*)"/i
+    // Procura por links de stream no HTML da Superflix
+    // A Superflix costuma usar iframes ou players como o Player.js que carregam m3u8
+    const m3u8Regex = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/gi
+    const mp4Regex = /(https?:\/\/[^"'\s]+\.mp4[^"'\s]*)/gi
     
-    const m3u8Match = html.match(m3u8Regex)
-    const mp4Match = html.match(mp4Regex)
+    let streams = [...html.matchAll(m3u8Regex)].map(m => m[0])
+    if (streams.length === 0) {
+      streams = [...html.matchAll(mp4Regex)].map(m => m[0])
+    }
     
-    const streamUrl = m3u8Match ? m3u8Match[1] : (mp4Match ? mp4Match[1] : null)
+    // Filtra domínios conhecidos de ads ou trackers se necessário, 
+    // mas aqui pegamos o primeiro que parecer um vídeo real
+    const streamUrl = streams.find(s => !s.includes('ads') && !s.includes('analytics')) || null
+
+    console.log('Found stream:', streamUrl)
 
     return new Response(JSON.stringify({ streamUrl }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
   } catch (error) {
+    console.error('Extraction error:', error)
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
