@@ -21,6 +21,14 @@ const AD_HOST_PATTERNS = [
   'cointraffic', 'adbluemedia', 'notifpush', 'push-notify', 'pushwhy',
 ];
 
+// Padrões que só podem casar no início do host (evita bloquear domínios
+// legítimos como "uploads.example.com" ou "downloads.example.com").
+const AD_HOST_PREFIXES = ['ads.', 'ad.', 'adserver.'];
+const AD_PATH_PATTERNS = ['/ads/', '/adframe', '/advert'];
+
+// Hosts que NUNCA devem ser bloqueados (backend, imagens, players, APIs).
+const ALLOWED_POPUP_HOSTS = ['t.me', 'telegram.me', 'unsplash.com', 'images.unsplash.com'];
+
 const AD_SELECTORS = [
   'ins.adsbygoogle',
   '[id*="google_ads"]',
@@ -35,8 +43,22 @@ const AD_SELECTORS = [
 const isBlockedUrl = (raw: unknown): boolean => {
   if (typeof raw !== 'string' || !raw) return false;
   const url = raw.toLowerCase();
-  if (url.startsWith('data:') || url.startsWith('blob:')) return false;
-  return AD_HOST_PATTERNS.some((p) => url.includes(p));
+  if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('about:')) return false;
+
+  let host = '';
+  let path = url;
+  try {
+    const u = new URL(url, window.location.href);
+    host = u.hostname;
+    path = u.pathname + u.search;
+  } catch {
+    /* URL relativa ou inválida: usa a string crua no match de path */
+  }
+
+  if (host && ALLOWED_POPUP_HOSTS.includes(host)) return false;
+  if (AD_HOST_PATTERNS.some((p) => host.includes(p))) return true;
+  if (host && AD_HOST_PREFIXES.some((p) => host.startsWith(p))) return true;
+  return AD_PATH_PATTERNS.some((p) => path.includes(p));
 };
 
 const looksLikeAdNode = (el: Element): boolean => {
@@ -78,19 +100,32 @@ export function installAdBlock() {
     return originalFetch(input as RequestInfo, init);
   }) as typeof window.fetch;
 
+  // XHR: marcamos a requisição como bloqueada no open() e abortamos no send().
+  // (Trocar a URL por "about:blank" lançava exceção e quebrava o chamador.)
+  const BLOCKED_FLAG = '__adblockBlocked';
   const originalOpen = XMLHttpRequest.prototype.open;
+  const originalSend = XMLHttpRequest.prototype.send;
+
   XMLHttpRequest.prototype.open = function (
-    this: XMLHttpRequest,
+    this: XMLHttpRequest & { [BLOCKED_FLAG]?: boolean },
     method: string,
     url: string | URL,
     ...rest: unknown[]
   ) {
-    if (isBlockedUrl(typeof url === 'string' ? url : url?.href)) {
-      // Redireciona para um endpoint inócuo para não quebrar o chamador
-      return originalOpen.call(this, method, 'about:blank', ...(rest as []));
-    }
+    this[BLOCKED_FLAG] = isBlockedUrl(typeof url === 'string' ? url : url?.href);
     return originalOpen.call(this, method, url as string, ...(rest as []));
   } as typeof XMLHttpRequest.prototype.open;
+
+  XMLHttpRequest.prototype.send = function (
+    this: XMLHttpRequest & { [BLOCKED_FLAG]?: boolean },
+    body?: Document | XMLHttpRequestBodyInit | null
+  ) {
+    if (this[BLOCKED_FLAG]) {
+      this.abort();
+      return;
+    }
+    return originalSend.call(this, body as XMLHttpRequestBodyInit | null);
+  } as typeof XMLHttpRequest.prototype.send;
 
   if (navigator.sendBeacon) {
     const originalBeacon = navigator.sendBeacon.bind(navigator);
@@ -100,10 +135,28 @@ export function installAdBlock() {
         : originalBeacon(url, data)) as typeof navigator.sendBeacon;
   }
 
-  // 2) Bloqueia pop-ups e pop-unders
-  window.open = ((url?: string | URL) => {
-    console.warn('[AdBlock] pop-up bloqueado:', url);
-    return null;
+  // 2) Bloqueia pop-ups/pop-unders de terceiros, mas mantém os links legítimos
+  // do próprio site funcionando (Telegram, downloads de wallpaper etc.).
+  const originalWindowOpen = window.open.bind(window);
+  window.open = ((url?: string | URL, target?: string, features?: string) => {
+    const href = typeof url === 'string' ? url : url?.href;
+    let allowed = false;
+    if (href) {
+      try {
+        const u = new URL(href, window.location.href);
+        allowed =
+          u.origin === window.location.origin ||
+          ALLOWED_POPUP_HOSTS.includes(u.hostname) ||
+          !isBlockedUrl(u.href);
+      } catch {
+        allowed = false;
+      }
+    }
+    if (!allowed) {
+      console.warn('[AdBlock] pop-up bloqueado:', href);
+      return null;
+    }
+    return originalWindowOpen(href, target, features);
   }) as typeof window.open;
 
   // 3) Remove nós de anúncio já presentes e futuros

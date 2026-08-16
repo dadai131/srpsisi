@@ -65,8 +65,13 @@ const Watch = () => {
 
         setSeasonSource(source);
         setSeasons(chosen);
-        const current = chosen.find(s => s.season_number === season);
-        if (current) setEpisodeCount(current.episode_count);
+        if (chosen.length > 0) {
+          // Se a temporada da URL não existir, cai para a primeira disponível
+          setSeason(prev => {
+            const exists = chosen.some(s => s.season_number === prev);
+            return exists ? prev : chosen[0].season_number;
+          });
+        }
       })
       .finally(() => setLoadingSeasons(false));
   }, [id, isSeries]);
@@ -75,8 +80,11 @@ const Watch = () => {
   useEffect(() => {
     const current = seasons.find(s => s.season_number === season);
     if (current) {
-      setEpisodeCount(current.episode_count);
-      if (episode > current.episode_count) setEpisode(1);
+      const count = current.episode_count > 0 ? current.episode_count : 1;
+      setEpisodeCount(count);
+      if (episode > count) setEpisode(1);
+    } else if (seasons.length === 0) {
+      setEpisodeCount(1);
     }
     // Force iframe reload on season/episode change
     setIframeLoading(true);
@@ -125,6 +133,7 @@ const Watch = () => {
       )
     : '';
   const playerUrl = isAllowedPlayerUrl(rawPlayerUrl) ? rawPlayerUrl : '';
+  const invalidContent = !id;
 
   const handlePrevEpisode = () => {
     if (episode > 1) {
@@ -211,7 +220,19 @@ const Watch = () => {
 
           {/* Player Container */}
           <div className="relative w-full bg-card rounded-lg overflow-hidden shadow-2xl mb-6" style={{ paddingBottom: '50%', minHeight: '400px' }}>
-            {iframeLoading ? (
+            {invalidContent || !playerUrl ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center">
+                <p className="text-foreground font-semibold">Conteúdo indisponível</p>
+                <p className="text-sm text-muted-foreground">
+                  {invalidContent
+                    ? 'O link acessado não é válido.'
+                    : 'Não foi possível carregar este player. Tente o outro player.'}
+                </p>
+                <Button variant="secondary" size="sm" onClick={() => navigate('/')}>
+                  Voltar ao início
+                </Button>
+              </div>
+            ) : iframeLoading ? (
               <div className="absolute inset-0 flex items-center justify-center bg-card">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               </div>
