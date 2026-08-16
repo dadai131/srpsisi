@@ -21,6 +21,8 @@ const Watch = () => {
   const [loadingSeasons, setLoadingSeasons] = useState(false);
   const [seasonSource, setSeasonSource] = useState<'TMDB' | 'TVmaze' | ''>('');
   const [iframeLoading, setIframeLoading] = useState(false);
+  const [directStreamUrl, setDirectStreamUrl] = useState<string | null>(null);
+  const [loadingStream, setLoadingStream] = useState(false);
   const [theme, setTheme] = useState<PlayerTheme>({
     color: 'e50914',
     transparent: false,
@@ -88,9 +90,36 @@ const Watch = () => {
     }
     // Force iframe reload on season/episode change
     setIframeLoading(true);
+    setDirectStreamUrl(null);
     const timer = setTimeout(() => setIframeLoading(false), 100);
     return () => clearTimeout(timer);
   }, [season, episode, seasons]);
+
+  // Efeito para buscar stream direto se o Player 2 for selecionado
+  useEffect(() => {
+    if (activePlayer === 2 && id) {
+      const superflixUrl = getPlayerUrl(
+        id,
+        isSeries ? 'serie' : 'movie',
+        isSeries ? season : undefined,
+        isSeries ? episode : undefined,
+        theme,
+        1 // Sempre pega a URL da Superflix para extração
+      );
+
+      setLoadingStream(true);
+      getDirectStreamUrl(superflixUrl)
+        .then(url => {
+          if (url) {
+            console.log('Stream direto extraído com sucesso:', url);
+            setDirectStreamUrl(url);
+          }
+        })
+        .finally(() => setLoadingStream(false));
+    } else {
+      setDirectStreamUrl(null);
+    }
+  }, [activePlayer, id, season, episode, isSeries, theme]);
 
   useEffect(() => {
     if (isSeries) {
@@ -219,8 +248,8 @@ const Watch = () => {
           </div>
 
           {/* Player Container */}
-          <div className="relative w-full bg-card rounded-lg overflow-hidden shadow-2xl mb-6" style={{ paddingBottom: '50%', minHeight: '400px' }}>
-            {invalidContent || !playerUrl ? (
+          <div className="relative w-full bg-card rounded-lg overflow-hidden shadow-2xl mb-6" style={{ paddingBottom: '56.25%', minHeight: '400px' }}>
+            {invalidContent || (!playerUrl && !directStreamUrl) ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center">
                 <p className="text-foreground font-semibold">Conteúdo indisponível</p>
                 <p className="text-sm text-muted-foreground">
@@ -232,9 +261,25 @@ const Watch = () => {
                   Voltar ao início
                 </Button>
               </div>
-            ) : iframeLoading ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-card">
+            ) : (iframeLoading || (activePlayer === 2 && loadingStream)) ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                {loadingStream && <p className="text-xs text-muted-foreground">Otimizando stream...</p>}
+              </div>
+            ) : directStreamUrl ? (
+              <div className="absolute inset-0 w-full h-full bg-black">
+                {/* Usamos um player de vídeo nativo para o link direto .mp4 ou .m3u8 */}
+                {/* Em um ambiente real, poderíamos usar o Hls.js aqui para .m3u8, mas simplificamos com <video> */}
+                <video 
+                  key={directStreamUrl}
+                  src={directStreamUrl} 
+                  controls 
+                  autoPlay 
+                  className="w-full h-full"
+                  poster={seasons.length > 0 ? undefined : '/placeholder.svg'}
+                >
+                  Seu navegador não suporta o elemento de vídeo.
+                </video>
               </div>
             ) : (
               <iframe
