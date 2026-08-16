@@ -80,8 +80,11 @@ const Watch = () => {
   useEffect(() => {
     const current = seasons.find(s => s.season_number === season);
     if (current) {
-      setEpisodeCount(current.episode_count);
-      if (episode > current.episode_count) setEpisode(1);
+      const count = current.episode_count > 0 ? current.episode_count : 1;
+      setEpisodeCount(count);
+      if (episode > count) setEpisode(1);
+    } else if (seasons.length === 0) {
+      setEpisodeCount(1);
     }
     // Force iframe reload on season/episode change
     setIframeLoading(true);
