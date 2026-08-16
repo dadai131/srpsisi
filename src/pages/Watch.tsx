@@ -89,12 +89,22 @@ const Watch = () => {
       const params = new URLSearchParams();
       if (season > 1) params.set('s', season.toString());
       if (episode > 1) params.set('e', episode.toString());
-      setSearchParams(params);
+      // replace evita empilhar uma entrada de histórico por episódio
+      setSearchParams(params, { replace: true });
     }
   }, [season, episode, isSeries, setSearchParams]);
 
   // Allowlist de origens permitidas nos iframes dos players
-  const ALLOWED_PLAYER_HOSTS = ['superflixapi.help', 'www.primevicio.lat', 'primevicio.lat'];
+  const ALLOWED_PLAYER_HOSTS = [
+    'superflixapi.pro',
+    'superflixapi.cyou',
+    'superflixapi.fit',
+    'superflixapi.best',
+    'superflixapi.rest',
+    'superflixapi.help',
+    'www.primevicio.lat',
+    'primevicio.lat',
+  ];
   const isAllowedPlayerUrl = (url: string) => {
     try {
       const u = new URL(url);

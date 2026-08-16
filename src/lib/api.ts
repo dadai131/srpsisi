@@ -453,7 +453,8 @@ export function getPlayerUrl(
   }
 
   // Superflix player (default)
-  const API_BASE = 'https://superflixapi.help';
+  // Domínio atual do Superflix (os antigos apenas redirecionam, o que quebrava o iframe)
+  const API_BASE = 'https://superflixapi.pro';
   let url = '';
   
   if (type === 'movie') {
