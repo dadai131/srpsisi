@@ -9,6 +9,7 @@ import Calendar from "./pages/Calendar";
 import LiveTV from "./pages/LiveTV";
 import NotFound from "./pages/NotFound";
 import WallpaperHome from "./pages/WallpaperHome";
+import LiveRedirect from "./pages/LiveRedirect";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/watch/:type/:id" element={<Watch />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/tv" element={<LiveTV />} />
+            <Route path="/live/:token/:file" element={<LiveRedirect />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         )}
