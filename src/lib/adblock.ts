@@ -21,6 +21,14 @@ const AD_HOST_PATTERNS = [
   'cointraffic', 'adbluemedia', 'notifpush', 'push-notify', 'pushwhy',
 ];
 
+// Padrões que só podem casar no início do host (evita bloquear domínios
+// legítimos como "uploads.example.com" ou "downloads.example.com").
+const AD_HOST_PREFIXES = ['ads.', 'ad.', 'adserver.'];
+const AD_PATH_PATTERNS = ['/ads/', '/adframe', '/advert'];
+
+// Hosts que NUNCA devem ser bloqueados (backend, imagens, players, APIs).
+const ALLOWED_POPUP_HOSTS = ['t.me', 'telegram.me', 'unsplash.com', 'images.unsplash.com'];
+
 const AD_SELECTORS = [
   'ins.adsbygoogle',
   '[id*="google_ads"]',
@@ -35,8 +43,22 @@ const AD_SELECTORS = [
 const isBlockedUrl = (raw: unknown): boolean => {
   if (typeof raw !== 'string' || !raw) return false;
   const url = raw.toLowerCase();
-  if (url.startsWith('data:') || url.startsWith('blob:')) return false;
-  return AD_HOST_PATTERNS.some((p) => url.includes(p));
+  if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('about:')) return false;
+
+  let host = '';
+  let path = url;
+  try {
+    const u = new URL(url, window.location.href);
+    host = u.hostname;
+    path = u.pathname + u.search;
+  } catch {
+    /* URL relativa ou inválida: usa a string crua no match de path */
+  }
+
+  if (host && ALLOWED_POPUP_HOSTS.includes(host)) return false;
+  if (AD_HOST_PATTERNS.some((p) => host.includes(p))) return true;
+  if (host && AD_HOST_PREFIXES.some((p) => host.startsWith(p))) return true;
+  return AD_PATH_PATTERNS.some((p) => path.includes(p));
 };
 
 const looksLikeAdNode = (el: Element): boolean => {
