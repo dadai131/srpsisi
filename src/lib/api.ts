@@ -446,32 +446,17 @@ export function getPlayerUrl(
   options?: { color?: string; transparent?: boolean; noEpList?: boolean },
   player: 1 | 2 = 1
 ): string {
-  if (player === 2) {
-    const BASE = 'https://www.primevicio.lat/embed';
-    if (type === 'movie') {
-      return `${BASE}/movie/${id}`;
-    } else {
-      let url = `${BASE}/tv/${id}`;
-      if (season) {
-        url += `/${season}`;
-        if (episode) url += `/${episode}`;
-      }
-      return url;
-    }
-  }
-
   // Superflix player (default)
-  // Domínio atual do Superflix (os antigos apenas redirecionam, o que quebrava o iframe)
-  const API_BASE = 'https://superflixapi.pro';
-  let url = '';
+  const SUPERFLIX_BASE = 'https://superflixapi.pro';
+  let superflixUrl = '';
   
   if (type === 'movie') {
-    url = `${API_BASE}/filme/${id}`;
+    superflixUrl = `${SUPERFLIX_BASE}/filme/${id}`;
   } else {
-    url = `${API_BASE}/serie/${id}`;
+    superflixUrl = `${SUPERFLIX_BASE}/serie/${id}`;
     if (season) {
-      url += `/${season}`;
-      if (episode) url += `/${episode}`;
+      superflixUrl += `/${season}`;
+      if (episode) superflixUrl += `/${episode}`;
     }
   }
 
@@ -481,10 +466,44 @@ export function getPlayerUrl(
   if (options?.color) params.push(`color:${options.color.replace('#', '')}`);
 
   if (params.length > 0) {
-    url += '#' + params.join('#');
+    superflixUrl += '#' + params.join('#');
   }
 
-  return url;
+  if (player === 2) {
+    // Para o Player 2, tentamos extrair o stream direto da Superflix e retornar um link de proxy
+    // se possível, ou retornar o player da PrimeVicio como fallback.
+    // Como a extração é assíncrona e esta função é síncrona, retornamos o player secundário normal
+    // mas o componente Watch agora poderá tentar usar o stream direto se o Player 2 for selecionado.
+    const PRIME_BASE = 'https://www.primevicio.lat/embed';
+    if (type === 'movie') {
+      return `${PRIME_BASE}/movie/${id}`;
+    } else {
+      let url = `${PRIME_BASE}/tv/${id}`;
+      if (season) {
+        url += `/${season}`;
+        if (episode) url += `/${episode}`;
+      }
+      return url;
+    }
+  }
+
+  return superflixUrl;
+}
+
+export async function getDirectStreamUrl(superflixUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/functions/v1/extract-stream`, {
+      method: 'POST',
+      body: JSON.stringify({ url: superflixUrl }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.streamUrl;
+  } catch (e) {
+    console.error('Erro ao extrair stream direto:', e);
+    return null;
+  }
 }
 
 // ============= TVmaze Integration =============
