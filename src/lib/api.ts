@@ -2,7 +2,14 @@ import { ContentItem, ContentType, CalendarItem } from '@/types/content';
 
 // A chave da API TMDB fica somente no backend (edge function "tmdb").
 // O front chama sempre o proxy, nunca a TMDB diretamente.
-const BACKEND_URL = import.meta.env.VITE_SUPABASE_URL || 'https://xfqocptliyukeypvylom.supabase.co';
+const FALLBACK_BACKEND_URL = 'https://xfqocptliyukeypvylom.supabase.co';
+const RAW_BACKEND_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+// Em alguns builds a variável chega como string "undefined"/vazia — nesse caso
+// o `||` não protege e a URL final fica inválida. Validamos o valor.
+const BACKEND_URL =
+  RAW_BACKEND_URL && /^https?:\/\//.test(RAW_BACKEND_URL)
+    ? RAW_BACKEND_URL.replace(/\/+$/, '')
+    : FALLBACK_BACKEND_URL;
 const TMDB_PROXY = `${BACKEND_URL}/functions/v1/tmdb`;
 
 export function tmdbUrl(path: string, query: string = ''): string {
