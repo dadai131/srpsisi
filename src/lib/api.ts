@@ -479,16 +479,45 @@ export function getPlayerUrl(
   return superflixUrl;
 }
 
-export async function getDirectStreamUrl(superflixUrl: string): Promise<string | null> {
+const EXTRACT_ENDPOINT = `${BACKEND_URL}/functions/v1/extract-stream`;
+
+export interface StreamVariant {
+  url: string;
+  resolution?: string;
+  bandwidth: number;
+}
+
+export interface DirectStream {
+  streamUrl: string;
+  kind: 'hls' | 'dash' | 'file';
+  variants: StreamVariant[];
+  referer?: string;
+}
+
+/** Monta a URL do proxy de playback (envia Referer/User-Agent corretos ao CDN). */
+export function playbackProxyUrl(url: string, referer?: string): string {
+  const qs = new URLSearchParams({ proxy: url });
+  if (referer) qs.set('referer', referer);
+  return `${EXTRACT_ENDPOINT}?${qs.toString()}`;
+}
+
+/** Detecta o link real do vídeo a partir da página da fonte (Player 1). */
+export async function getDirectStreamUrl(superflixUrl: string): Promise<DirectStream | null> {
   try {
-    const res = await fetch(`${BACKEND_URL}/functions/v1/extract-stream`, {
+    const res = await fetch(EXTRACT_ENDPOINT, {
       method: 'POST',
       body: JSON.stringify({ url: superflixUrl }),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) return null;
     const data = await res.json();
-    return data.streamUrl;
+    if (!data?.streamUrl) return null;
+    return {
+      streamUrl: data.streamUrl as string,
+      kind: (data.kind as DirectStream['kind']) || 'file',
+      variants: Array.isArray(data.variants) ? data.variants : [],
+      referer: data.referer,
+    };
   } catch (e) {
     console.error('Erro ao extrair stream direto:', e);
     return null;
