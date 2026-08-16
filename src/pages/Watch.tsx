@@ -113,6 +113,9 @@ const Watch = () => {
           if (url) {
             console.log('Stream direto extraído com sucesso:', url);
             setDirectStreamUrl(url);
+          } else {
+            console.log('Extração falhou, tentando fallback para player da Superflix no iframe');
+            setDirectStreamUrl(null);
           }
         })
         .finally(() => setLoadingStream(false));
