@@ -224,7 +224,8 @@ const Watch = () => {
                 frameBorder="0"
                 scrolling="no"
                 referrerPolicy="no-referrer-when-downgrade"
-                allow="autoplay; encrypted-media; picture-in-picture"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                 title="Player"
               />
             )}
