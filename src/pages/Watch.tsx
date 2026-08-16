@@ -110,13 +110,17 @@ const Watch = () => {
       setLoadingStream(true);
       getDirectStreamUrl(superflixUrl)
         .then(url => {
-          if (url) {
+          if (url && (url.includes('.m3u8') || url.includes('.mp4'))) {
             console.log('Stream direto extraído com sucesso:', url);
             setDirectStreamUrl(url);
           } else {
-            console.log('Extração falhou, tentando fallback para player da Superflix no iframe');
+            console.log('Extração falhou ou link inválido, tentando fallback para player da Superflix no iframe');
             setDirectStreamUrl(null);
           }
+        })
+        .catch(err => {
+          console.error('Erro na extração do Player 2:', err);
+          setDirectStreamUrl(null);
         })
         .finally(() => setLoadingStream(false));
     } else {
