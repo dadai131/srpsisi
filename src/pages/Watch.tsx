@@ -4,7 +4,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Database } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { PlayerControls } from '@/components/PlayerControls';
 import { PlayerTheme } from '@/types/content';
-import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl } from '@/lib/api';
+import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl, getDirectStreamUrl } from '@/lib/api';
 
 const Watch = () => {
   const { type, id: rawId } = useParams<{ type: string; id: string }>();
