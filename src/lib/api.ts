@@ -479,9 +479,6 @@ export function getPlayerUrl(
   return superflixUrl;
 }
 
-  return superflixUrl;
-}
-
 export async function getDirectStreamUrl(superflixUrl: string): Promise<string | null> {
   try {
     const res = await fetch(`${BACKEND_URL}/functions/v1/extract-stream`, {
