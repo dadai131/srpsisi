@@ -3,7 +3,6 @@ import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { HeroBanner } from '@/components/HeroBanner';
 import { ContentRow } from '@/components/ContentRow';
-import { AdBanner } from '@/components/AdBanner';
 import { ContentType, ContentItem } from '@/types/content';
 import { fetchContent } from '@/lib/api';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -143,7 +142,6 @@ const Index = () => {
           )}
         </div>
 
-        <AdBanner position="bottom" />
 
         <footer className="border-t border-border/50 py-6">
           <div className="px-4 md:px-8 text-center">
