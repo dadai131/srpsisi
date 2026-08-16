@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Play, Tv, Info } from 'lucide-react';
 import { channels, categories, Channel } from '@/data/channels';
+import { PlaylistExport } from '@/components/PlaylistExport';
 
 const LiveTV = () => {
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
@@ -54,6 +55,11 @@ const LiveTV = () => {
             <h2 className="text-lg font-bold text-foreground">TV ao Vivo</h2>
             <span className="text-xs text-muted-foreground">({filteredChannels.length} canais)</span>
           </div>
+
+          <PlaylistExport
+            channels={filteredChannels}
+            scopeLabel={categories.find(c => c.id === activeCategory)?.name ?? 'Todos'}
+          />
 
           {/* Category filter */}
           <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-4 mb-4">
