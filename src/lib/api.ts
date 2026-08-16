@@ -2,10 +2,7 @@ import { ContentItem, ContentType, CalendarItem } from '@/types/content';
 
 // A chave da API TMDB fica somente no backend (edge function "tmdb").
 // O front chama sempre o proxy, nunca a TMDB diretamente.
-const SUPABASE_URL =
-  (import.meta.env.VITE_SUPABASE_URL as string | undefined) ||
-  'https://xfqocptliyukeypvylom.supabase.co';
-const TMDB_PROXY = `${SUPABASE_URL}/functions/v1/tmdb`;
+const TMDB_PROXY = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tmdb`;
 
 export function tmdbUrl(path: string, query: string = ''): string {
   const qs = query ? `&${query.replace(/^[?&]/, '')}` : '';
@@ -456,7 +453,8 @@ export function getPlayerUrl(
   }
 
   // Superflix player (default)
-  const API_BASE = 'https://superflixapi.help';
+  // Domínio atual do Superflix (os antigos apenas redirecionam, o que quebrava o iframe)
+  const API_BASE = 'https://superflixapi.pro';
   let url = '';
   
   if (type === 'movie') {
