@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Download, Copy, ChevronDown, ChevronUp, ListVideo, Check } from 'lucide-react';
+import { Download, Copy, ChevronDown, ChevronUp, ListVideo, Check, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Channel } from '@/data/channels';
-import { PlaylistFormat, buildPlaylist, formatMeta, downloadText } from '@/lib/playlist';
+import { PlaylistFormat, buildPlaylist, formatMeta, downloadText, createTrial, TrialAccess } from '@/lib/playlist';
 import { toast } from '@/hooks/use-toast';
 
 interface PlaylistExportProps {
@@ -16,9 +16,19 @@ export function PlaylistExport({ channels, scopeLabel }: PlaylistExportProps) {
   const [open, setOpen] = useState(false);
   const [format, setFormat] = useState<PlaylistFormat>('m3u8');
   const [copied, setCopied] = useState(false);
+  const [trial, setTrial] = useState<TrialAccess | null>(null);
 
-  const content = useMemo(() => buildPlaylist(channels, format), [channels, format]);
+  const content = useMemo(
+    () => (trial ? buildPlaylist(channels, format, trial) : ''),
+    [channels, format, trial]
+  );
   const meta = formatMeta[format];
+
+  const handleTrial = () => {
+    const t = createTrial(5);
+    setTrial(t);
+    toast({ title: '5 dias grátis liberados', description: `Acesso válido até ${t.expLabel}.` });
+  };
 
   const handleCopy = async () => {
     try {
@@ -66,15 +76,34 @@ export function PlaylistExport({ channels, scopeLabel }: PlaylistExportProps) {
             ))}
           </div>
 
+          {trial ? (
+            <p className="text-xs text-primary">
+              Acesso gratuito de {trial.days} dias · usuário <span className="text-foreground">{trial.username}</span> · senha{' '}
+              <span className="text-foreground">{trial.password}</span> · expira em {trial.expLabel}
+            </p>
+          ) : (
+            <div className="rounded-lg border border-primary/40 bg-primary/10 p-3 space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Gere um acesso gratuito de 5 dias para liberar a lista. Os links são servidos pelo próprio site.
+              </p>
+              <Button size="sm" onClick={handleTrial}>
+                <Gift className="w-3.5 h-3.5 mr-1" /> Gerar 5 dias grátis
+              </Button>
+            </div>
+          )}
+
           <p className="text-xs text-muted-foreground">
             {meta.hint} · {channels.length} canais ({scopeLabel}) · arquivo <span className="text-foreground">lokifilmes-tv.{meta.ext}</span>
           </p>
 
+          {trial && (
           <pre className="max-h-52 overflow-auto rounded-lg bg-background/80 border border-border/50 p-3 text-[11px] leading-relaxed text-muted-foreground whitespace-pre-wrap break-all">
             {content.slice(0, 4000)}
             {content.length > 4000 ? '\n…' : ''}
           </pre>
+          )}
 
+          {trial && (
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={handleDownload}>
               <Download className="w-3.5 h-3.5 mr-1" /> Baixar {meta.label}
@@ -83,6 +112,7 @@ export function PlaylistExport({ channels, scopeLabel }: PlaylistExportProps) {
               {copied ? <Check className="w-3.5 h-3.5 mr-1" /> : <Copy className="w-3.5 h-3.5 mr-1" />} Copiar
             </Button>
           </div>
+          )}
         </div>
       )}
     </div>

@@ -4,31 +4,78 @@ export type PlaylistFormat = 'm3u' | 'm3u8' | 'hls' | 'dash' | 'ts' | 'xtream' |
 
 const catName = (id: string) => categories.find(c => c.id === id)?.name ?? id;
 
-/** Stream URL for a channel in a given container/protocol. */
-export function streamUrl(ch: Channel, format: PlaylistFormat): string {
-  const base = ch.embed.replace(/\/$/, '');
-  switch (format) {
-    case 'dash':
-      return `${base}/index.mpd`;
-    case 'ts':
-      return `${base}/stream.ts`;
-    case 'hls':
-    case 'm3u8':
-    case 'm3u':
-    default:
-      return `${base}/index.m3u8`;
+const TRIAL_DAYS = 5;
+
+export interface TrialAccess {
+  username: string;
+  password: string;
+  token: string;
+  /** Unix seconds */
+  exp: number;
+  expLabel: string;
+  days: number;
+}
+
+const b64url = (s: string) =>
+  btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+export const decodeToken = (token: string): { c?: string; exp?: number } | null => {
+  try {
+    const b = token.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(b + '='.repeat((4 - (b.length % 4)) % 4)));
+  } catch {
+    return null;
   }
+};
+
+const rand = (n: number) => {
+  const chars = 'abcdefghijkmnopqrstuvwxyz23456789';
+  const buf = new Uint8Array(n);
+  (globalThis.crypto ?? ({ getRandomValues: () => buf } as never)).getRandomValues(buf);
+  return Array.from(buf, b => chars[b % chars.length]).join('');
+};
+
+/** Creates a free access pass valid for 5 days. */
+export function createTrial(days = TRIAL_DAYS): TrialAccess {
+  const exp = Math.floor(Date.now() / 1000) + days * 86400;
+  const username = `free_${rand(6)}`;
+  const password = rand(8);
+  return {
+    username,
+    password,
+    token: b64url(JSON.stringify({ u: username, exp })),
+    exp,
+    expLabel: new Date(exp * 1000).toLocaleString('pt-BR'),
+    days,
+  };
+}
+
+export const siteOrigin = () =>
+  (typeof window !== 'undefined' ? window.location.origin : 'https://lokifilms.qzz.io').replace(/\/$/, '');
+
+/**
+ * Stream URL served through our own site (never exposes the upstream source).
+ * Format: /live/<token>/<channelId>.<ext>
+ */
+export function streamUrl(ch: Channel, format: PlaylistFormat, trial?: TrialAccess): string {
+  const token = trial?.token ?? createTrial().token;
+  const ext = format === 'dash' ? 'mpd' : format === 'ts' ? 'ts' : 'm3u8';
+  return `${siteOrigin()}/live/${token}/${encodeURIComponent(ch.id)}.${ext}`;
 }
 
 /** M3U / M3U8 / HLS / DASH / TS playlist (extended M3U with logos and groups). */
-export function buildM3U(list: Channel[], format: PlaylistFormat = 'm3u8'): string {
-  const lines = ['#EXTM3U x-tvg-url="xmltv.xml"'];
+export function buildM3U(list: Channel[], format: PlaylistFormat = 'm3u8', trial?: TrialAccess): string {
+  const t = trial ?? createTrial();
+  const lines = [
+    `#EXTM3U x-tvg-url="${siteOrigin()}/live/${t.token}/xmltv.xml"`,
+    `#PLAYLIST:LokiFilmes TV - Acesso gratis ${t.days} dias (expira ${t.expLabel})`,
+  ];
   for (const ch of list) {
     lines.push(
       `#EXTINF:-1 tvg-id="${ch.id}" tvg-name="${ch.name}" tvg-logo="${ch.logo}" group-title="${catName(ch.category)}",${ch.name}`
     );
     if (format === 'ts') lines.push('#EXTVLCOPT:network-caching=1500');
-    lines.push(streamUrl(ch, format));
+    lines.push(streamUrl(ch, format, t));
   }
   return lines.join('\n') + '\n';
 }
@@ -77,15 +124,17 @@ export function buildXMLTV(list: Channel[], hours = 24, blockHours = 2): string 
 }
 
 /** Xtream Codes API compatible payload (get_live_streams + server_info). */
-export function buildXtream(list: Channel[]): string {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+export function buildXtream(list: Channel[], trial?: TrialAccess): string {
+  const t = trial ?? createTrial();
+  const origin = siteOrigin();
   const payload = {
     user_info: {
-      username: 'guest',
-      password: 'guest',
+      username: t.username,
+      password: t.password,
       auth: 1,
       status: 'Active',
-      is_trial: '0',
+      is_trial: '1',
+      exp_date: String(t.exp),
       max_connections: '1',
       allowed_output_formats: ['m3u8', 'ts'],
     },
@@ -107,17 +156,17 @@ export function buildXtream(list: Channel[]): string {
       stream_icon: ch.logo,
       epg_channel_id: ch.id,
       category_name: catName(ch.category),
-      direct_source: streamUrl(ch, 'm3u8'),
+      direct_source: streamUrl(ch, 'm3u8', t),
       tv_archive: 0,
     })),
   };
   return JSON.stringify(payload, null, 2);
 }
 
-export function buildPlaylist(list: Channel[], format: PlaylistFormat): string {
+export function buildPlaylist(list: Channel[], format: PlaylistFormat, trial?: TrialAccess): string {
   if (format === 'xmltv') return buildXMLTV(list);
-  if (format === 'xtream') return buildXtream(list);
-  return buildM3U(list, format);
+  if (format === 'xtream') return buildXtream(list, trial);
+  return buildM3U(list, format, trial);
 }
 
 export const formatMeta: Record<
