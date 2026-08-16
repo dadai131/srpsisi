@@ -14,8 +14,18 @@ serve(async (req) => {
     const { url } = await req.json()
     if (!url) return new Response(JSON.stringify({ error: 'URL is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
-    console.log('Fetching Superflix page:', url)
+    console.log('Fetching Superflix page for extraction:', url)
     
+    // Lista de domínios conhecidos da Superflix que podem estar no redirecionamento
+    const superflixDomains = [
+      'superflixapi.pro',
+      'superflixapi.cyou',
+      'superflixapi.fit',
+      'superflixapi.best',
+      'superflixapi.rest',
+      'superflixapi.help'
+    ];
+
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -25,23 +35,74 @@ serve(async (req) => {
 
     const html = await response.text()
     
-    // Procura por links de stream no HTML da Superflix
-    // A Superflix costuma usar iframes ou players como o Player.js que carregam m3u8
+    // 1. Tentar encontrar a URL do stream diretamente no HTML principal
+    // A Superflix frequentemente injeta o link via window.playerInstance ou similar
     const m3u8Regex = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/gi
     const mp4Regex = /(https?:\/\/[^"'\s]+\.mp4[^"'\s]*)/gi
     
-    let streams = [...html.matchAll(m3u8Regex)].map(m => m[0])
-    if (streams.length === 0) {
-      streams = [...html.matchAll(mp4Regex)].map(m => m[0])
+    let allMatches = [
+      ...html.matchAll(m3u8Regex),
+      ...html.matchAll(mp4Regex)
+    ].map(m => m[0]);
+
+    // Filtrar para remover lixo (ads, analytics, domínios de trackers)
+    // Manter apenas o que parece ser um servidor de vídeo
+    const streamUrl = allMatches.find(s => 
+      !s.includes('ads') && 
+      !s.includes('analytics') && 
+      !s.includes('click') &&
+      !s.includes('pop') &&
+      !s.includes('doubleclick') &&
+      (s.includes('m3u8') || s.includes('mp4'))
+    );
+
+    if (streamUrl) {
+      console.log('Found direct stream in HTML:', streamUrl);
+      return new Response(JSON.stringify({ streamUrl }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      })
     }
+
+    // 2. Se não encontrou, procurar por iframes que possam conter o player real
+    const iframeRegex = /<iframe[^>]+src=["']([^"']+)["']/gi
+    const iframes = [...html.matchAll(iframeRegex)].map(m => m[1]);
     
-    // Filtra domínios conhecidos de ads ou trackers se necessário, 
-    // mas aqui pegamos o primeiro que parecer um vídeo real
-    const streamUrl = streams.find(s => !s.includes('ads') && !s.includes('analytics')) || null
+    for (const iframeUrl of iframes) {
+      // Se o iframe aponta para outro domínio da Superflix ou player conhecido
+      if (superflixDomains.some(d => iframeUrl.includes(d)) || iframeUrl.includes('player')) {
+        try {
+          console.log('Following iframe to:', iframeUrl);
+          const iframeRes = await fetch(iframeUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Referer': url
+            }
+          });
+          const iframeHtml = await iframeRes.text();
+          const nestedMatches = [
+            ...iframeHtml.matchAll(m3u8Regex),
+            ...iframeHtml.matchAll(mp4Regex)
+          ].map(m => m[0]);
+          
+          const nestedStream = nestedMatches.find(s => 
+            !s.includes('ads') && !s.includes('analytics') && !s.includes('pop')
+          );
+          
+          if (nestedStream) {
+            console.log('Found stream in nested iframe:', nestedStream);
+            return new Response(JSON.stringify({ streamUrl: nestedStream }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 200,
+            })
+          }
+        } catch (e) {
+          console.error('Failed to fetch iframe:', iframeUrl, e);
+        }
+      }
+    }
 
-    console.log('Found stream:', streamUrl)
-
-    return new Response(JSON.stringify({ streamUrl }), {
+    return new Response(JSON.stringify({ streamUrl: null, message: 'Could not extract stream' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
