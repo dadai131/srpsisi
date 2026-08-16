@@ -55,12 +55,12 @@ export const siteOrigin = () =>
 
 /**
  * Stream URL served through our own site (never exposes the upstream source).
- * Format: /live/<token>/<channelId>.<ext>
+ * Format: /live/<token>/playlist.m3u
+ * Updated to return a single playlist URL as requested by the user.
  */
 export function streamUrl(ch: Channel, format: PlaylistFormat, trial?: TrialAccess): string {
   const token = trial?.token ?? createTrial().token;
-  const ext = format === 'dash' ? 'mpd' : format === 'ts' ? 'ts' : 'm3u8';
-  return `${siteOrigin()}/live/${token}/${encodeURIComponent(ch.id)}.${ext}`;
+  return `${siteOrigin()}/live/${token}/playlist.m3u`;
 }
 
 /** M3U / M3U8 / HLS / DASH / TS playlist (extended M3U with logos and groups). */
