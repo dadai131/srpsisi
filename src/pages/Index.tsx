@@ -79,7 +79,13 @@ const Index = () => {
               <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
           ) : searchQuery ? (
-            <ContentRow title="Resultados da Busca" items={content} />
+            content.length > 0 ? (
+              <ContentRow title="Resultados da Busca" items={content} />
+            ) : (
+              <p className="text-muted-foreground py-10 text-center">
+                Nenhum resultado encontrado para "{searchQuery}".
+              </p>
+            )
           ) : (
             <>
               {/* FILMES */}
