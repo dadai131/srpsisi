@@ -110,7 +110,7 @@ const Watch = () => {
       setLoadingStream(true);
       getDirectStreamUrl(superflixUrl)
         .then(url => {
-          if (url && (url.includes('.m3u8') || url.includes('.mp4'))) {
+          if (url && (url.includes('.m3u8') || url.includes('.mp4') || url.includes('xn--'))) {
             console.log('Stream direto extraído com sucesso:', url);
             setDirectStreamUrl(url);
           } else {
