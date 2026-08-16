@@ -12,8 +12,8 @@ export interface ChannelCategory {
   emoji: string;
 }
 
-const EMBED_BASE = 'https://www2.embedtv.best';
-const IMG_BASE = 'https://embedtv.best/assets/images';
+const EMBED_BASE = 'https://www2.embedtv.lat';
+const IMG_BASE = 'https://embedtv.lat/assets/images';
 
 export const categories: ChannelCategory[] = [
   { id: 'all', name: 'Todos', emoji: '📺' },
