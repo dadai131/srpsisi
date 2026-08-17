@@ -8,7 +8,10 @@ const corsHeaders = {
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 const AD_HINTS = ['ads', 'adserv', 'analytics', 'doubleclick', 'popads', 'popcash', 'click', 'track', 'pixel', 'banner', 'promo', 'gtm', 'googletag'];
-const isAdUrl = (u: string) => AD_HINTS.some((h) => u.toLowerCase().includes(h));
+const isAdUrl = (u: string) => {
+  if (u.includes('superflixapi.pro') || u.includes('xn--')) return false;
+  return AD_HINTS.some((h) => u.toLowerCase().includes(h));
+};
 
 function unescapeUrls(html: string): string {
   return html.replace(/\\\//g, '/').replace(/\\u002[fF]/g, '/').replace(/\\u0026/g, '&').replace(/&amp;/g, '&');
@@ -39,7 +42,6 @@ function collectMedia(rawHtml: string): Found[] {
   const seen = new Set<string>();
 
   // Player 1: a resposta JSON contém explicitamente securedLink.
-  // Esse link é a fonte prioritária do Player 3 e normalmente é um M3U8 temporário.
   const securedPatterns = [
     /["']securedLink["']\s*:\s*["']([^"']+)["']/gi,
     /["']secured_link["']\s*:\s*["']([^"']+)["']/gi,
@@ -61,6 +63,10 @@ function collectMedia(rawHtml: string): Found[] {
     { re: /(https?:\/\/[^"'\s\\<>()]+\.mp4[^"'\s\\<>()]*)/gi, kind: 'file' },
     { re: /(https?:\/\/xn--[^"'\s\\<>()]+(?:\/m3\/|\/video\/|\/hls\/)[^"'\s\\<>()]*)/gi, kind: 'hls' },
     { re: /(https?:\/\/[^"'\s\\<>()]+\/master\.txt[^"'\s\\<>()]*)/gi, kind: 'hls' },
+    { re: /sources\s*:\s*\[\s*\{\s*file\s*:\s*["']([^"']+)["']/gi, kind: 'hls' },
+    { re: /file\s*:\s*["'](https?:\/\/[^"']+)["']/gi, kind: 'hls' },
+    // Adicionando matchers para URLs ofuscadas ou em arrays de scripts
+    { re: /["'](https?:\/\/[^"']+\.(?:m3u8|mp4|mpd)(?:\?[^"']*)?)["']/gi, kind: 'hls' }
   ];
 
   for (const { re, kind } of patterns) {
@@ -68,7 +74,8 @@ function collectMedia(rawHtml: string): Found[] {
       const url = m[1];
       if (seen.has(url) || isAdUrl(url)) continue;
       seen.add(url);
-      out.push({ url, kind, secured: false });
+      const detectedKind: Kind = /\.m3u8(?:\?|$)|\/m3\//i.test(url) ? 'hls' : /\.mpd(?:\?|$)/i.test(url) ? 'dash' : 'file';
+      out.push({ url, kind: detectedKind, secured: false });
     }
   }
   return out;
@@ -80,16 +87,35 @@ function findIframes(rawHtml: string): string[] {
 }
 
 async function fetchPage(url: string, referer: string): Promise<string> {
-  const res = await fetch(url, { headers: { 'User-Agent': UA, 'Referer': referer, 'Accept': 'text/html,application/xhtml+xml,*/*' } });
-  return await res.text();
+  try {
+    const res = await fetch(url, { headers: { 
+      'User-Agent': UA, 
+      'Referer': referer, 
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+      'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache'
+    } });
+    if (!res.ok) {
+      console.log(`Fetch failed for ${url}: ${res.status}`);
+      return '';
+    }
+    return await res.text();
+  } catch (e) {
+    console.log(`Fetch error for ${url}: ${e}`);
+    return '';
+  }
 }
 
 async function detect(url: string, referer: string, depth = 0): Promise<{ found: Found[]; referer: string }> {
   const html = await fetchPage(url, referer);
+  console.log('HTML length for', url, ':', html.length);
+  if (html.length < 500) console.log('HTML snippet:', html.substring(0, 500));
   const found = collectMedia(html);
   if (found.length > 0 || depth >= 2) return { found, referer: url };
   for (const iframe of findIframes(html).slice(0, 4)) {
     try {
+      console.log('Following iframe:', iframe);
       const nested = await detect(iframe, url, depth + 1);
       if (nested.found.length > 0) return nested;
     } catch (e) {
@@ -128,7 +154,7 @@ async function handleProxy(target: string, refererParam: string | null, req: Req
   try { targetUrl = new URL(target); } catch { return new Response(JSON.stringify({ error: 'URL inválida' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }); }
   if (targetUrl.protocol !== 'https:' && targetUrl.protocol !== 'http:') return new Response(JSON.stringify({ error: 'Protocolo não permitido' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-  const referer = refererParam || 'https://superflixapi.pro/';
+  const referer = refererParam || 'https://superflixapi.pro';
   const upstreamHeaders: Record<string, string> = { 'User-Agent': UA, 'Referer': referer, 'Origin': new URL(referer).origin, 'Accept': '*/*' };
   const range = req.headers.get('range');
   if (range) upstreamHeaders['Range'] = range;
@@ -174,7 +200,36 @@ serve(async (req) => {
     const { url: sourceUrl } = await req.json();
     if (!sourceUrl || !/^https:\/\//.test(sourceUrl)) return new Response(JSON.stringify({ error: 'URL is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     console.log('Detecting media at:', sourceUrl);
-    const { found, referer } = await detect(sourceUrl, 'https://superflixapi.pro/');
+    
+    // Tenta primeiro o link direto do embed que geralmente contém os dados JSON/HTML com securedLink
+    const embedUrl = sourceUrl.includes('/filme/') 
+      ? sourceUrl.replace('superflixapi.pro/filme/', 'superflixapi.pro/api/filme/') 
+      : sourceUrl.replace('superflixapi.pro/serie/', 'superflixapi.pro/api/serie/');
+    
+    console.log('Trying API endpoint first:', embedUrl);
+    
+    let detectResult = await detect(embedUrl, 'https://superflixapi.pro/');
+    let found = detectResult.found;
+    let referer = detectResult.referer;
+    
+    if (found.length === 0) {
+      console.log('API endpoint failed, trying original URL...');
+      detectResult = await detect(sourceUrl, 'https://superflixapi.pro/');
+      found = detectResult.found;
+      referer = detectResult.referer;
+    }
+
+    // Fallback agressivo: busca por URLs de stream no HTML bruto caso a detecção estruturada falhe
+    if (found.length === 0) {
+      console.log('Detection failed, trying raw fetch and specific regex...');
+      const rawHtml = await fetchPage(sourceUrl, 'https://superflixapi.pro/');
+      const rawMatch = rawHtml.match(/https?:\/\/[^"']+\.m3u8[^"']*/i);
+      if (rawMatch) {
+        found.push({ url: rawMatch[0], kind: 'hls', secured: false });
+        referer = sourceUrl;
+      }
+    }
+    
     console.log('Found media items:', found.length);
     if (found.length === 0) return new Response(JSON.stringify({ streamUrl: null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
 
