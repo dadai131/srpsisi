@@ -39,7 +39,6 @@ function collectMedia(rawHtml: string): Found[] {
   const seen = new Set<string>();
 
   // Player 1: a resposta JSON contém explicitamente securedLink.
-  // Esse link é a fonte prioritária do Player 3 e normalmente é um M3U8 temporário.
   const securedPatterns = [
     /["']securedLink["']\s*:\s*["']([^"']+)["']/gi,
     /["']secured_link["']\s*:\s*["']([^"']+)["']/gi,
@@ -61,6 +60,8 @@ function collectMedia(rawHtml: string): Found[] {
     { re: /(https?:\/\/[^"'\s\\<>()]+\.mp4[^"'\s\\<>()]*)/gi, kind: 'file' },
     { re: /(https?:\/\/xn--[^"'\s\\<>()]+(?:\/m3\/|\/video\/|\/hls\/)[^"'\s\\<>()]*)/gi, kind: 'hls' },
     { re: /(https?:\/\/[^"'\s\\<>()]+\/master\.txt[^"'\s\\<>()]*)/gi, kind: 'hls' },
+    { re: /sources\s*:\s*\[\s*\{\s*file\s*:\s*["']([^"']+)["']/gi, kind: 'hls' },
+    { re: /file\s*:\s*["'](https?:\/\/[^"']+)["']/gi, kind: 'hls' },
   ];
 
   for (const { re, kind } of patterns) {
@@ -68,7 +69,8 @@ function collectMedia(rawHtml: string): Found[] {
       const url = m[1];
       if (seen.has(url) || isAdUrl(url)) continue;
       seen.add(url);
-      out.push({ url, kind, secured: false });
+      const detectedKind: Kind = /\.m3u8(?:\?|$)|\/m3\//i.test(url) ? 'hls' : /\.mpd(?:\?|$)/i.test(url) ? 'dash' : 'file';
+      out.push({ url, kind: detectedKind, secured: false });
     }
   }
   return out;
@@ -87,6 +89,7 @@ async function fetchPage(url: string, referer: string): Promise<string> {
 async function detect(url: string, referer: string, depth = 0): Promise<{ found: Found[]; referer: string }> {
   const html = await fetchPage(url, referer);
   console.log('HTML length for', url, ':', html.length);
+  if (html.length < 500) console.log('HTML snippet:', html.substring(0, 500));
   const found = collectMedia(html);
   if (found.length > 0 || depth >= 2) return { found, referer: url };
   for (const iframe of findIframes(html).slice(0, 4)) {
