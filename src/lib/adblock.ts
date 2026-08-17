@@ -27,7 +27,7 @@ const AD_HOST_PREFIXES = ['ads.', 'ad.', 'adserver.'];
 const AD_PATH_PATTERNS = ['/ads/', '/adframe', '/advert'];
 
 // Hosts que NUNCA devem ser bloqueados (backend, imagens, players, APIs).
-const ALLOWED_POPUP_HOSTS = ['t.me', 'telegram.me', 'unsplash.com', 'images.unsplash.com'];
+const ALLOWED_POPUP_HOSTS = ['t.me', 'telegram.me', 'unsplash.com', 'images.unsplash.com', 'superflixapi.pro'];
 
 const AD_SELECTORS = [
   'ins.adsbygoogle',
@@ -55,7 +55,7 @@ const isBlockedUrl = (raw: unknown): boolean => {
     /* URL relativa ou inválida: usa a string crua no match de path */
   }
 
-  if (host && ALLOWED_POPUP_HOSTS.includes(host)) return false;
+  if (host && ALLOWED_POPUP_HOSTS.some(allowed => host === allowed || host.endsWith('.' + allowed))) return false;
   if (AD_HOST_PATTERNS.some((p) => host.includes(p))) return true;
   if (host && AD_HOST_PREFIXES.some((p) => host.startsWith(p))) return true;
   return AD_PATH_PATTERNS.some((p) => path.includes(p));
