@@ -216,6 +216,17 @@ serve(async (req) => {
       found = detectResult.found;
       referer = detectResult.referer;
     }
+
+    // Fallback agressivo: busca por URLs de stream no HTML bruto caso a detecção estruturada falhe
+    if (found.length === 0) {
+      console.log('Detection failed, trying raw fetch and specific regex...');
+      const rawHtml = await fetchPage(sourceUrl, 'https://superflixapi.pro/');
+      const rawMatch = rawHtml.match(/https?:\/\/[^"']+\.m3u8[^"']*/i);
+      if (rawMatch) {
+        found.push({ url: rawMatch[0], kind: 'hls', secured: false });
+        referer = sourceUrl;
+      }
+    }
     
     console.log('Found media items:', found.length);
     if (found.length === 0) return new Response(JSON.stringify({ streamUrl: null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
