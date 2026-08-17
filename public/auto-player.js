@@ -1,46 +1,115 @@
 // public/auto-player.js
-// Intercepta POST para /player/index.php?data=...&do=getVideo, extrai securedLink e inicia o player nativo automaticamente.
+// Substitui o player existente por um player simples (<video id="player2">), intercepta POST para /player/index.php?data=...&do=getVideo,
+// extrai securedLink e inicia o player automaticamente.
 
 (function AutoPlayer(){
   const LOG = '[AutoPlayer]';
   const handled = new Set();
 
-  function getOrCreateVideo(){
-    let video = document.querySelector('video#player2, video.player2, video');
-    if(video) return video;
-    const container = document.querySelector('.player-container, #player, .video-container, #root, body');
-    video = document.createElement('video');
+  // Cria um player <video> simples
+  function createSimplePlayer() {
+    const video = document.createElement('video');
     video.id = 'player2';
     video.controls = true;
     video.playsInline = true;
     video.style.width = '100%';
     video.style.height = '100%';
-    if(container){
-      container.innerHTML = '';
-      container.appendChild(video);
-    } else {
-      document.body.appendChild(video);
-    }
+    video.style.background = 'black';
+    video.setAttribute('preload', 'metadata');
     return video;
   }
 
-  function playUrl(url){
+  // Substitui o player complexo existente por um player simples
+  function replaceExistingPlayerInDOM() {
+    const selectors = [
+      '#player2', // se já existir
+      '.player-container',
+      '#player',
+      '.video-container',
+      '.player',
+      '.video-player',
+      '.jwplayer',
+      '.plyr__video-embed',
+      '#root' // cuidado: se for app SPA, #root contém a app; só substitui se parecer um player
+    ];
+
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+
+      // Não substituir #root se ele contém vários nós (provavelmente a app inteira) — apenas substitui se tiver especificamente um player
+      if (sel === '#root') {
+        // heurística: se #root tem exatamente 1 filho que é player-like, substitui; caso contrário pula
+        const children = el.children;
+        if (!children || children.length > 3) continue; // muita coisa — evita quebrar app
+      }
+
+      const simple = createSimplePlayer();
+      // limpa e insere o novo player
+      try {
+        // se for #root e tiver conteúdo do app, não limpa tudo — em vez disso, tenta inserir no início
+        if (sel === '#root') {
+          el.insertBefore(simple, el.firstChild);
+        } else {
+          el.innerHTML = '';
+          el.appendChild(simple);
+        }
+        console.log(LOG, 'Substituído elemento', sel, 'por player simples');
+        return simple;
+      } catch (e) {
+        console.warn(LOG, 'Falha ao substituir', sel, e);
+      }
+    }
+
+    // se não encontrou nada, anexa no body
+    const s = createSimplePlayer();
+    s.style.maxWidth = '100%';
+    s.style.display = 'block';
+    s.style.margin = '0 auto';
+    document.body.appendChild(s);
+    console.log(LOG, 'Player simples adicionado no body');
+    return s;
+  }
+
+  // Busca ou cria o video (garantindo que exista o player simples e único)
+  function getOrCreateVideo(){
+    let video = document.querySelector('video#player2');
+    if (video) return video;
+    return replaceExistingPlayerInDOM();
+  }
+
+  async function ensureHlsJs(){
+    if (window.Hls) return window.Hls;
+    return new Promise(resolve => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
+      s.async = true;
+      s.onload = () => resolve(window.Hls);
+      s.onerror = () => resolve(null);
+      document.head.appendChild(s);
+    });
+  }
+
+  async function playUrl(url){
     if(!url || handled.has(url)) return;
     handled.add(url);
     console.log(LOG, 'Link capturado:', url);
+
     const video = getOrCreateVideo();
+    if(!video) return console.warn(LOG, 'Não foi possível criar/encontrar o vídeo');
 
     // tenta autoplay com mute para aumentar chances
     const prevMuted = video.muted;
     video.muted = true;
 
-    // se hls.js já estiver carregado (bundle), usa-o; senão tenta direto no elemento <video>
+    const Hls = await ensureHlsJs();
+
     try{
-      if(window.Hls && window.Hls.isSupported && window.Hls.isSupported()){
-        const hls = new window.Hls();
+      if(Hls && Hls.isSupported && Hls.isSupported()){
+        const hls = new Hls();
         hls.loadSource(url);
         hls.attachMedia(video);
-        hls.on(window.Hls.Events.MANIFEST_PARSED, ()=>{
+        hls.on(Hls.Events.MANIFEST_PARSED, ()=>{
           video.play().catch(e=>console.warn(LOG,'autoplay bloqueado:',e));
         });
         console.log(LOG,'Reproduzindo via hls.js');
@@ -63,11 +132,11 @@
     if(!jsonOrText) return null;
     try{
       const obj = (typeof jsonOrText === 'string') ? JSON.parse(jsonOrText) : jsonOrText;
-      return obj && obj.securedLink ? obj.securedLink : null;
+      return obj && (obj.securedLink || obj.secured_link || obj.secureLink) || null;
     }catch(e){ return null; }
   }
 
-  // intercept fetch
+  // Intercept fetch
   (function(){
     const orig = window.fetch.bind(window);
     window.fetch = async function(...args){
@@ -90,7 +159,7 @@
     console.log(LOG,'fetch interceptado');
   })();
 
-  // intercept XHR
+  // Intercept XHR
   (function(){
     const NativeXHR = window.XMLHttpRequest;
     if(!NativeXHR) return;
@@ -119,14 +188,14 @@
     console.log(LOG,'XMLHttpRequest interceptado');
   })();
 
-  // observe DOM to try play if video already has src
+  // Observe DOM para tentar tocar caso já tenha src
   (function(){
     const mo = new MutationObserver(()=>{
-      const v = document.querySelector('video');
+      const v = document.querySelector('video#player2');
       if(v && v.src && v.paused){ v.play().catch(()=>{}); }
     });
     mo.observe(document.documentElement||document.body, { childList: true, subtree: true });
   })();
 
-  console.log(LOG,'auto-player pronto');
+  console.log(LOG,'auto-player pronto e configurado para substituir player existente por player simples');
 })();
