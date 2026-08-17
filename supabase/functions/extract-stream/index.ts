@@ -13,7 +13,7 @@ const isAdUrl = (u: string) => {
   return AD_HINTS.some((h) => u.toLowerCase().includes(h));
 };
 
-const SUPERFLIX_BASE = 'https://www2.superflixapi.pro';
+const SUPERFLIX_BASE = 'https://superflixapi.pro';
 
 function unescapeUrls(html: string): string {
   return html.replace(/\\\//g, '/').replace(/\\u002[fF]/g, '/').replace(/\\u0026/g, '&').replace(/&amp;/g, '&');
@@ -43,6 +43,8 @@ function collectMedia(rawHtml: string): Found[] {
   const out: Found[] = [];
   const seen = new Set<string>();
 
+  console.log("HTML length for analysis:", html.length);
+
   // Player 1: a resposta JSON contém explicitamente securedLink.
   const securedPatterns = [
     /["']securedLink["']\s*:\s*["']([^"']+)["']/gi,
@@ -67,13 +69,17 @@ function collectMedia(rawHtml: string): Found[] {
     { re: /(https?:\/\/[^"'\s\\<>()]+\/master\.txt[^"'\s\\<>()]*)/gi, kind: 'hls' },
     { re: /sources\s*:\s*\[\s*\{\s*file\s*:\s*["']([^"']+)["']/gi, kind: 'hls' },
     { re: /file\s*:\s*["'](https?:\/\/[^"']+)["']/gi, kind: 'hls' },
-    // Adicionando matchers para URLs ofuscadas ou em arrays de scripts
-    { re: /["'](https?:\/\/[^"']+\.(?:m3u8|mp4|mpd)(?:\?[^"']*)?)["']/gi, kind: 'hls' }
+    { re: /["'](https?:\/\/[^"']+\.(?:m3u8|mp4|mpd)(?:\?[^"']*)?)["']/gi, kind: 'hls' },
+    // Regex adicional para capturar URLs que podem estar escapadas de forma diferente
+    { re: /(https?:\\\/\\\/[^"'\s\\]+\.m3u8[^"'\s\\]*)/gi, kind: 'hls' }
   ];
 
   for (const { re, kind } of patterns) {
     for (const m of html.matchAll(re)) {
-      const url = m[1];
+      let url = m[1];
+      if (url.includes('\\/')) {
+        url = url.replace(/\\\//g, '/');
+      }
       if (seen.has(url) || isAdUrl(url)) continue;
       seen.add(url);
       const detectedKind: Kind = /\.m3u8(?:\?|$)|\/m3\//i.test(url) ? 'hls' : /\.mpd(?:\?|$)/i.test(url) ? 'dash' : 'file';
@@ -92,7 +98,7 @@ async function fetchPage(url: string, referer: string): Promise<string> {
   try {
     const res = await fetch(url, { headers: { 
       'User-Agent': UA, 
-      'Referer': 'https://www2.superflixapi.pro/', 
+      'Referer': 'https://superflixapi.pro/', 
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
       'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
       'Cache-Control': 'no-cache',
@@ -205,18 +211,18 @@ serve(async (req) => {
     
     // Tenta primeiro o link direto do embed que geralmente contém os dados JSON/HTML com securedLink
     const embedUrl = sourceUrl.includes('/filme/') 
-      ? sourceUrl.replace('superflixapi.pro/filme/', 'www2.superflixapi.pro/api/filme/') 
-      : sourceUrl.replace('superflixapi.pro/serie/', 'www2.superflixapi.pro/api/serie/');
+      ? sourceUrl.replace('superflixapi.pro/filme/', 'superflixapi.pro/api/filme/') 
+      : sourceUrl.replace('superflixapi.pro/serie/', 'superflixapi.pro/api/serie/');
     
     console.log('Trying API endpoint first:', embedUrl);
     
-    let detectResult = await detect(embedUrl, 'https://www2.superflixapi.pro/');
+    let detectResult = await detect(embedUrl, 'https://superflixapi.pro/');
     let found = detectResult.found;
     let referer = detectResult.referer;
     
     if (found.length === 0) {
       console.log('API endpoint failed, trying original URL...');
-      detectResult = await detect(sourceUrl, 'https://www2.superflixapi.pro/');
+      detectResult = await detect(sourceUrl, 'https://superflixapi.pro/');
       found = detectResult.found;
       referer = detectResult.referer;
     }
@@ -224,7 +230,7 @@ serve(async (req) => {
     // Fallback agressivo: busca por URLs de stream no HTML bruto caso a detecção estruturada falhe
     if (found.length === 0) {
       console.log('Detection failed, trying raw fetch and specific regex...');
-      const rawHtml = await fetchPage(sourceUrl, 'https://www2.superflixapi.pro/');
+      const rawHtml = await fetchPage(sourceUrl, 'https://superflixapi.pro/');
       const rawMatch = rawHtml.match(/https?:\/\/[^"']+\.m3u8[^"']*/i);
       if (rawMatch) {
         found.push({ url: rawMatch[0], kind: 'hls', secured: false });
