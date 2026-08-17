@@ -11,12 +11,7 @@
     <meta name="author" content="LokiFilmes" />
     <meta name="theme-color" content="#0a0a0a" />
 
-    <!-- Security headers (versão via meta; headers HTTP equivalentes devem ser configurados no Cloudflare) -->
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.gpteng.co https://*.lovable.app https://*.lovable.dev; style-src 'self' 'unsafe-inline' https://fonts.googleapis.co[...]
-    />
-    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <!-- Security headers devem ser configurados preferencialmente como headers HTTP no Vercel/Cloudflare. -->
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -34,14 +29,10 @@
   </head>
 
   <body class="dark">
-    <!-- Container opcional para o player simples (o script vai usar este seletor para inserir o <video>) -->
     <div id="player-container"></div>
-
     <div id="root"></div>
 
-    <!-- auto-player: substitui player existente por um <video id="player2">, intercepta a requisição ao player e inicia reprodução automaticamente -->
     <script src="/auto-player.js"></script>
-
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
