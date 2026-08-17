@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { PlayerControls } from '@/components/PlayerControls';
 import { HlsPlayer } from '@/components/HlsPlayer';
 import { PlayerTheme } from '@/types/content';
-import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl, playbackProxyUrl, DirectStream } from '@/lib/api';
+import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl, playbackProxyUrl, DirectStream, getDirectStreamUrl } from '@/lib/api';
 
 const Watch = () => {
   const { type, id: rawId } = useParams<{ type: string; id: string }>();
@@ -54,8 +54,7 @@ const Watch = () => {
     return () => clearTimeout(timer);
   }, [season, episode, seasons]);
 
-  // Player 3 follows the same server flow observed in Player 1:
-  // player page -> bootstrap -> source -> redirect -> getVideo -> securedLink.
+  // Player 3 logic: Secured Link Extraction
   useEffect(() => {
     if (activePlayer !== 3 || !id) {
       if (activePlayer !== 3) { setDirectStream(null); setStreamFailed(false); }
@@ -67,26 +66,17 @@ const Watch = () => {
     setStreamFailed(false);
     setDirectStream(null);
 
-    fetch('/api/player3', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, type: isSeries ? 'serie' : 'movie', season, episode }),
-    })
-      .then(async response => {
-        const data = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(data?.error || `Player 3 returned ${response.status}`);
-        return data;
-      })
+    const sourceUrl = getPlayerUrl(id, isSeries ? 'serie' : 'movie', isSeries ? season : undefined, isSeries ? episode : undefined, theme, 1);
+
+    getDirectStreamUrl(sourceUrl)
       .then(data => {
         if (cancelled) return;
-        const streamUrl = typeof data?.streamUrl === 'string' ? data.streamUrl : '';
-        const isHls = !!streamUrl && (/\.m3u8(?:\?|$)/i.test(streamUrl) || data?.kind === 'hls');
-        if (!isHls) throw new Error('securedLink HLS não encontrado');
-        setDirectStream({ streamUrl, referer: data?.referer, kind: 'hls' });
+        if (!data || !data.streamUrl) throw new Error('securedLink HLS não encontrado');
+        setDirectStream(data);
       })
       .catch(error => {
         if (!cancelled) {
-          console.error('Player 3:', error);
+          console.error('Player 3 Error:', error);
           setDirectStream(null);
           setStreamFailed(true);
         }
@@ -94,7 +84,7 @@ const Watch = () => {
       .finally(() => { if (!cancelled) setLoadingStream(false); });
 
     return () => { cancelled = true; };
-  }, [activePlayer, id, season, episode, isSeries]);
+  }, [activePlayer, id, season, episode, isSeries, theme]);
 
   useEffect(() => {
     if (!isSeries) return;
@@ -130,9 +120,9 @@ const Watch = () => {
 
       <div className="relative w-full bg-card rounded-lg overflow-hidden shadow-2xl mb-6" style={{ paddingBottom: '56.25%', minHeight: '400px' }}>
         {invalidContent ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><p className="text-sm text-muted-foreground">O link acessado não é válido.</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>
-        : activePlayer === 3 && loadingStream ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /><p className="text-xs text-muted-foreground">Obtendo securedLink HLS...</p></div>
-        : activePlayer === 3 && streamFailed ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Player 3 não encontrou o HLS</p><p className="text-sm text-muted-foreground">O fluxo Player 1 → bootstrap → source → getVideo não retornou um securedLink válido.</p><Button variant="default" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button></div>
-        : activePlayer === 3 && playbackSrc ? <HlsPlayer key={playbackSrc} src={playbackSrc} isHls onFatalError={() => { setDirectStream(null); setStreamFailed(true); }} />
+        : activePlayer === 3 && loadingStream ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /><p className="text-xs text-muted-foreground">Carregando Player 3...</p></div>
+        : activePlayer === 3 && streamFailed ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Player 3 não encontrou o HLS</p><p className="text-sm text-muted-foreground">O fluxo de extração não retornou um securedLink válido. Por favor, utilize o Player 1.</p><Button variant="default" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button></div>
+        : activePlayer === 3 && playbackSrc ? <HlsPlayer key={playbackSrc} src={playbackSrc} isHls={directStream?.kind === 'hls'} onFatalError={() => { setDirectStream(null); setStreamFailed(true); }} />
         : activePlayer === 1 && (iframeLoading || !playerUrl) ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2">{!playerUrl ? <><p className="text-foreground font-semibold">Player indisponível</p><p className="text-sm text-muted-foreground">Não foi possível carregar este player.</p></> : <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />}</div>
         : activePlayer === 1 && playerUrl ? <iframe key={`${activePlayer}-${id}-${season}-${episode}`} src={playerUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen frameBorder="0" scrolling="no" referrerPolicy="no-referrer-when-downgrade" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" title="Player" />
         : <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>}

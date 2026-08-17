@@ -60,7 +60,7 @@ export const siteOrigin = () =>
  */
 export function streamUrl(ch: Channel, format: PlaylistFormat, trial?: TrialAccess): string {
   const token = trial?.token ?? createTrial().token;
-  return `${siteOrigin()}/live/${token}/playlist.m3u`;
+  return `${siteOrigin()}/live/${token}/${ch.id}.m3u8`;
 }
 
 /** M3U / M3U8 / HLS / DASH / TS playlist (extended M3U with logos and groups). */
@@ -68,13 +68,14 @@ export function buildM3U(list: Channel[], format: PlaylistFormat = 'm3u8', trial
   const t = trial ?? createTrial();
   const lines = [
     `#EXTM3U x-tvg-url="${siteOrigin()}/live/${t.token}/xmltv.xml"`,
-    `#PLAYLIST:LokiFilmes TV - Acesso gratis ${t.days} dias (expira ${t.expLabel})`,
+    `#PLAYLIST:LokiFilmes TV - Acesso grátis ${t.days} dias (expira ${t.expLabel})`,
   ];
   for (const ch of list) {
     lines.push(
       `#EXTINF:-1 tvg-id="${ch.id}" tvg-name="${ch.name}" tvg-logo="${ch.logo}" group-title="${catName(ch.category)}",${ch.name}`
     );
     if (format === 'ts') lines.push('#EXTVLCOPT:network-caching=1500');
+    // For M3U playlists, we now point each channel to its unique proxied URL
     lines.push(streamUrl(ch, format, t));
   }
   return lines.join('\n') + '\n';

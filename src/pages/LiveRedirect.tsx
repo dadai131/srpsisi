@@ -12,7 +12,8 @@ export default function LiveRedirect() {
     if (!payload?.exp) return { error: 'Link inválido.' };
     if (payload.exp * 1000 < Date.now()) return { error: 'Seu acesso gratuito expirou. Gere uma nova lista.' };
     
-    const isPlaylistRequest = file.toLowerCase().endsWith('.m3u') || file.toLowerCase().endsWith('.m3u8');
+    // A request for the full playlist (playlist.m3u or playlist.m3u8)
+    const isPlaylistRequest = file.toLowerCase() === 'playlist.m3u' || file.toLowerCase() === 'playlist.m3u8';
     
     if (isPlaylistRequest) {
       const trial: TrialAccess = {
@@ -26,6 +27,7 @@ export default function LiveRedirect() {
       return { isPlaylist: true, trial };
     }
 
+    // A request for a specific channel ID (e.g. channel-id.m3u8)
     const id = decodeURIComponent(file).replace(/\.(m3u8|mpd|ts|xml)$/i, '');
     const ch = channels.find(c => c.id === id);
     if (!ch) return { error: 'Canal não encontrado.' };

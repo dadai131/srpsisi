@@ -31,6 +31,33 @@ async function fetchTmdbDoramaRecent() { const today = new Date().toISOString().
 const POSTER_FALLBACK = 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=300&h=450&fit=crop';
 function tmdbToContentItem(item: TmdbResult, type: ContentType): ContentItem { return { id: item.id.toString(), title: item.title || item.name || 'Sem título', poster: item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : POSTER_FALLBACK, backdrop: item.backdrop_path ? `${TMDB_BACKDROP_BASE}${item.backdrop_path}` : undefined, type, year: (item.release_date || item.first_air_date || '').substring(0, 4), rating: item.vote_average ? Math.round(item.vote_average * 10) / 10 : undefined, overview: item.overview }; }
 
+export async function fetchCalendar(): Promise<CalendarItem[]> {
+  try {
+    const today = new Date();
+    const items: CalendarItem[] = [];
+    // Buscar lançamentos de hoje e dos últimos 7 dias
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const res = await fetch(tmdbUrl('/discover/tv', `language=pt-BR&first_air_date.gte=${dateStr}&first_air_date.lte=${dateStr}&sort_by=popularity.desc`));
+      if (res.ok) {
+        const data = await res.json();
+        (data.results || []).slice(0, 10).forEach((r: any) => {
+          items.push({
+            id: r.id.toString(),
+            title: r.name || r.title,
+            poster: r.poster_path ? `${TMDB_IMAGE_BASE}${r.poster_path}` : POSTER_FALLBACK,
+            type: 'serie',
+            releaseDate: dateStr
+          });
+        });
+      }
+    }
+    return items;
+  } catch { return []; }
+}
+
 export async function fetchContent(category: ContentType = 'all', query?: string): Promise<ContentItem[]> {
   try {
     if (query) { const res = await fetch(tmdbUrl('/search/multi', `language=pt-BR&query=${encodeURIComponent(query)}`)); if (!res.ok) return []; const data = await res.json(); return (data.results || []).filter((r: any) => r.media_type === 'movie' || r.media_type === 'tv').map((r: any) => tmdbToContentItem(r, r.media_type === 'movie' ? 'movie' : 'serie')); }
@@ -51,4 +78,4 @@ export function getPlayerUrl(id: string, type: 'movie' | 'serie', season?: numbe
 
 export interface DirectStream { streamUrl: string; referer?: string; kind?: 'hls' | 'dash' | 'mp4' | 'unknown'; }
 export function playbackProxyUrl(streamUrl: string, referer?: string): string { const base = `${BACKEND_URL}/functions/v1/playback-proxy`; const params = new URLSearchParams({ url: streamUrl }); if (referer) params.set('referer', referer); return `${base}?${params.toString()}`; }
-export async function getDirectStreamUrl(sourceUrl: string): Promise<DirectStream | null> { try { const res = await fetch(`${BACKEND_URL}/functions/v1/extract-stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: sourceUrl }) }); if (!res.ok) return null; return await res.json(); } catch { return null; } }
+export async function getDirectStreamUrl(sourceUrl: string): Promise<DirectStream | null> { try { const res = await fetch(`${BACKEND_URL}/functions/v1/extract-stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: sourceUrl }) }); if (!res.ok) return null; const data = await res.json(); if (!data || !data.streamUrl) return null; return data; } catch { return null; } }
