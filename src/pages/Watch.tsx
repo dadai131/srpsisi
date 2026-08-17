@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { PlayerControls } from '@/components/PlayerControls';
 import { HlsPlayer } from '@/components/HlsPlayer';
 import { PlayerTheme } from '@/types/content';
-import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl, getDirectStreamUrl, playbackProxyUrl, DirectStream } from '@/lib/api';
+import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl, playbackProxyUrl, DirectStream } from '@/lib/api';
 
 const Watch = () => {
   const { type, id: rawId } = useParams<{ type: string; id: string }>();
@@ -54,27 +54,47 @@ const Watch = () => {
     return () => clearTimeout(timer);
   }, [season, episode, seasons]);
 
-  // Player 3 deliberately accepts only an HLS source discovered from Player 1.
+  // Player 3 follows the same server flow observed in Player 1:
+  // player page -> bootstrap -> source -> redirect -> getVideo -> securedLink.
   useEffect(() => {
-    if ((activePlayer !== 2 && activePlayer !== 3) || !id) {
-      setDirectStream(null); setStreamFailed(false); return;
+    if (activePlayer !== 3 || !id) {
+      if (activePlayer !== 3) { setDirectStream(null); setStreamFailed(false); }
+      return;
     }
-    const sourceUrl = getPlayerUrl(id, isSeries ? 'serie' : 'movie', isSeries ? season : undefined, isSeries ? episode : undefined, theme, 1);
+
     let cancelled = false;
-    setLoadingStream(true); setStreamFailed(false); setDirectStream(null);
-    getDirectStreamUrl(sourceUrl).then(data => {
-      if (cancelled) return;
-      const isHlsStream = !!data?.streamUrl && (data.kind === 'hls' || /\.m3u8(?:\?|$)/i.test(data.streamUrl) || data.streamUrl.includes('/m3/') || data.streamUrl.includes('master.txt'));
-      if (data?.streamUrl && (activePlayer === 2 || isHlsStream)) {
-        setDirectStream(data); setStreamFailed(false);
-      } else {
-        setDirectStream(null); setStreamFailed(true);
-      }
-    }).catch(() => {
-      if (!cancelled) { setDirectStream(null); setStreamFailed(true); }
-    }).finally(() => { if (!cancelled) setLoadingStream(false); });
+    setLoadingStream(true);
+    setStreamFailed(false);
+    setDirectStream(null);
+
+    fetch('/api/player3', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, type: isSeries ? 'serie' : 'movie', season, episode }),
+    })
+      .then(async response => {
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(data?.error || `Player 3 returned ${response.status}`);
+        return data;
+      })
+      .then(data => {
+        if (cancelled) return;
+        const streamUrl = typeof data?.streamUrl === 'string' ? data.streamUrl : '';
+        const isHls = !!streamUrl && (/\.m3u8(?:\?|$)/i.test(streamUrl) || data?.kind === 'hls');
+        if (!isHls) throw new Error('securedLink HLS não encontrado');
+        setDirectStream({ streamUrl, referer: data?.referer, kind: 'hls' });
+      })
+      .catch(error => {
+        if (!cancelled) {
+          console.error('Player 3:', error);
+          setDirectStream(null);
+          setStreamFailed(true);
+        }
+      })
+      .finally(() => { if (!cancelled) setLoadingStream(false); });
+
     return () => { cancelled = true; };
-  }, [activePlayer, id, season, episode, isSeries, theme]);
+  }, [activePlayer, id, season, episode, isSeries]);
 
   useEffect(() => {
     if (!isSeries) return;
@@ -90,7 +110,6 @@ const Watch = () => {
   const playerUrl = isAllowedPlayerUrl(rawPlayerUrl) ? rawPlayerUrl : '';
   const invalidContent = !id;
   const playbackSrc = directStream ? playbackProxyUrl(directStream.streamUrl, directStream.referer) : null;
-  const isHls = directStream?.kind === 'hls' || !!directStream?.streamUrl?.includes('.m3u8') || !!directStream?.streamUrl?.includes('/m3/') || !!directStream?.streamUrl?.includes('master.txt');
 
   const handlePrevEpisode = () => { if (episode > 1) setEpisode(episode - 1); else if (season > 1) { const prev = seasons.find(s => s.season_number === season - 1); setSeason(season - 1); setEpisode(prev?.episode_count || 1); } };
   const handleNextEpisode = () => { const current = seasons.find(s => s.season_number === season); if (current && episode < current.episode_count) setEpisode(episode + 1); else { const next = seasons.find(s => s.season_number === season + 1); if (next) { setSeason(season + 1); setEpisode(1); } } };
@@ -104,15 +123,17 @@ const Watch = () => {
 
     <main className="pt-14"><div className="max-w-6xl mx-auto px-4 py-6">
       <div className="flex items-center gap-2 mb-3">
-        {[1,2,3].map(p => <button key={p} onClick={() => setActivePlayer(p as 1|2|3)} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === p ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>{p === 3 ? 'Player 3 • HLS' : `Player ${p}`}</button>)}
+        <button onClick={() => setActivePlayer(1)} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 1 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 1</button>
+        <button onClick={() => setActivePlayer(2)} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 2 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 2</button>
+        <button onClick={() => setActivePlayer(3)} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 3 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 3 • HLS</button>
       </div>
 
       <div className="relative w-full bg-card rounded-lg overflow-hidden shadow-2xl mb-6" style={{ paddingBottom: '56.25%', minHeight: '400px' }}>
         {invalidContent ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><p className="text-sm text-muted-foreground">O link acessado não é válido.</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>
-        : (activePlayer === 2 || activePlayer === 3) && loadingStream ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /><p className="text-xs text-muted-foreground">{activePlayer === 3 ? 'Extraindo HLS do Player 1...' : 'Detectando stream...'}</p></div>
-        : (activePlayer === 2 || activePlayer === 3) && streamFailed ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Stream não encontrado</p><p className="text-sm text-muted-foreground">{activePlayer === 3 ? 'O Player 1 não disponibilizou um M3U8 para este conteúdo.' : 'Não foi possível extrair o link direto. Use o Player 1.'}</p><Button variant="default" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button></div>
-        : (activePlayer === 2 || activePlayer === 3) && playbackSrc ? <HlsPlayer key={playbackSrc} src={playbackSrc} isHls={activePlayer === 3 ? true : isHls} onFatalError={() => { setDirectStream(null); setStreamFailed(true); }} />
-        : activePlayer === 1 && (iframeLoading || !playerUrl) ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2">{!playerUrl ? <><p className="text-foreground font-semibold">Player indisponível</p><p className="text-sm text-muted-foreground">Não foi possível carregar este player. Tente o outro player.</p></> : <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />}</div>
+        : activePlayer === 3 && loadingStream ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /><p className="text-xs text-muted-foreground">Obtendo securedLink HLS...</p></div>
+        : activePlayer === 3 && streamFailed ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Player 3 não encontrou o HLS</p><p className="text-sm text-muted-foreground">O fluxo Player 1 → bootstrap → source → getVideo não retornou um securedLink válido.</p><Button variant="default" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button></div>
+        : activePlayer === 3 && playbackSrc ? <HlsPlayer key={playbackSrc} src={playbackSrc} isHls onFatalError={() => { setDirectStream(null); setStreamFailed(true); }} />
+        : activePlayer === 1 && (iframeLoading || !playerUrl) ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2">{!playerUrl ? <><p className="text-foreground font-semibold">Player indisponível</p><p className="text-sm text-muted-foreground">Não foi possível carregar este player.</p></> : <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />}</div>
         : activePlayer === 1 && playerUrl ? <iframe key={`${activePlayer}-${id}-${season}-${episode}`} src={playerUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen frameBorder="0" scrolling="no" referrerPolicy="no-referrer-when-downgrade" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" title="Player" />
         : <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>}
       </div>
