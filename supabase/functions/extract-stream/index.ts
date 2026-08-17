@@ -203,18 +203,18 @@ serve(async (req) => {
     
     // Tenta primeiro o link direto do embed que geralmente contém os dados JSON/HTML com securedLink
     const embedUrl = sourceUrl.includes('/filme/') 
-      ? sourceUrl.replace('superflixapi.pro/filme/', 'superflixapi.pro/api/filme/') 
-      : sourceUrl.replace('superflixapi.pro/serie/', 'superflixapi.pro/api/serie/');
+      ? sourceUrl.replace('superflixapi.pro/filme/', 'www2.superflixapi.pro/api/filme/') 
+      : sourceUrl.replace('superflixapi.pro/serie/', 'www2.superflixapi.pro/api/serie/');
     
     console.log('Trying API endpoint first:', embedUrl);
     
-    let detectResult = await detect(embedUrl, 'https://superflixapi.pro/');
+    let detectResult = await detect(embedUrl, 'https://www2.superflixapi.pro/');
     let found = detectResult.found;
     let referer = detectResult.referer;
     
     if (found.length === 0) {
       console.log('API endpoint failed, trying original URL...');
-      detectResult = await detect(sourceUrl, 'https://superflixapi.pro/');
+      detectResult = await detect(sourceUrl, 'https://www2.superflixapi.pro/');
       found = detectResult.found;
       referer = detectResult.referer;
     }
@@ -222,7 +222,7 @@ serve(async (req) => {
     // Fallback agressivo: busca por URLs de stream no HTML bruto caso a detecção estruturada falhe
     if (found.length === 0) {
       console.log('Detection failed, trying raw fetch and specific regex...');
-      const rawHtml = await fetchPage(sourceUrl, 'https://superflixapi.pro/');
+      const rawHtml = await fetchPage(sourceUrl, 'https://www2.superflixapi.pro/');
       const rawMatch = rawHtml.match(/https?:\/\/[^"']+\.m3u8[^"']*/i);
       if (rawMatch) {
         found.push({ url: rawMatch[0], kind: 'hls', secured: false });
