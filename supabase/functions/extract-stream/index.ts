@@ -65,6 +65,8 @@ function collectMedia(rawHtml: string): Found[] {
     { re: /(https?:\/\/[^"'\s\\<>()]+\/master\.txt[^"'\s\\<>()]*)/gi, kind: 'hls' },
     { re: /sources\s*:\s*\[\s*\{\s*file\s*:\s*["']([^"']+)["']/gi, kind: 'hls' },
     { re: /file\s*:\s*["'](https?:\/\/[^"']+)["']/gi, kind: 'hls' },
+    // Adicionando matchers para URLs ofuscadas ou em arrays de scripts
+    { re: /["'](https?:\/\/[^"']+\.(?:m3u8|mp4|mpd)(?:\?[^"']*)?)["']/gi, kind: 'hls' }
   ];
 
   for (const { re, kind } of patterns) {
