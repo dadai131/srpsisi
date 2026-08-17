@@ -94,7 +94,7 @@ const Watch = () => {
     setSearchParams(params, { replace: true });
   }, [season, episode, isSeries, setSearchParams]);
 
-  const ALLOWED_PLAYER_HOSTS = ['superflixapi.pro','superflixapi.cyou','superflixapi.fit','superflixapi.best','superflixapi.rest','superflixapi.help','www.primevicio.lat','primevicio.lat'];
+  const ALLOWED_PLAYER_HOSTS = ['www2.superflixapi.pro', 'superflixapi.pro','superflixapi.cyou','superflixapi.fit','superflixapi.best','superflixapi.rest','superflixapi.help','www.primevicio.lat','primevicio.lat'];
   const isAllowedPlayerUrl = (url: string) => { try { const u = new URL(url); return u.protocol === 'https:' && ALLOWED_PLAYER_HOSTS.includes(u.hostname); } catch { return false; } };
   const rawPlayerUrl = id ? getPlayerUrl(id, isSeries ? 'serie' : 'movie', isSeries ? season : undefined, isSeries ? episode : undefined, theme, 1) : '';
   const playerUrl = isAllowedPlayerUrl(rawPlayerUrl) ? rawPlayerUrl : '';
@@ -113,13 +113,13 @@ const Watch = () => {
 
     <main className="pt-14"><div className="max-w-6xl mx-auto px-4 py-6">
       <div className="flex items-center gap-2 mb-3">
-        <button onClick={() => setActivePlayer(1)} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 1 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 1</button>
-        <button onClick={() => setActivePlayer(2)} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 2 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 2</button>
-        <button onClick={() => setActivePlayer(3)} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 3 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 3 • HLS (Sem Anúncios)</button>
+        <button onClick={() => { setActivePlayer(1); setStreamFailed(false); }} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 1 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 1</button>
+        <button onClick={() => { setActivePlayer(2); setStreamFailed(false); }} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 2 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 2</button>
+        <button onClick={() => { setActivePlayer(3); setStreamFailed(false); }} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 3 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 3 • HLS (Sem Anúncios)</button>
       </div>
 
       <div className="relative w-full bg-card rounded-lg overflow-hidden shadow-2xl mb-6" style={{ paddingBottom: '56.25%', minHeight: '400px' }}>
-        {invalidContent ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><p className="text-sm text-muted-foreground">O link acessado não é válido.</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>
+        {invalidContent ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><p className="text-sm text-muted-foreground">O link acessado não é válido (ID: {rawId}).</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>
         : activePlayer === 3 && loadingStream ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /><p className="text-xs text-muted-foreground">Carregando Player 3...</p></div>
         : activePlayer === 3 && streamFailed ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Player 3 não encontrou o HLS</p><p className="text-sm text-muted-foreground">O fluxo de extração não retornou um securedLink válido. Por favor, utilize o Player 1.</p><Button variant="default" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button></div>
         : activePlayer === 3 && playbackSrc ? <HlsPlayer key={playbackSrc} src={playbackSrc} isHls={directStream?.kind === 'hls'} onFatalError={() => { setDirectStream(null); setStreamFailed(true); }} />

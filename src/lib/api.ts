@@ -71,11 +71,11 @@ export interface SeasonInfo { season_number: number; episode_count: number; name
 export async function fetchTVMazeSeasons(id: string): Promise<SeasonInfo[]> { try { const res = await fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(id)}/seasons`); if (!res.ok) return []; const data = await res.json(); return (data || []).map((s: any) => ({ season_number: s.number, episode_count: s.episodeOrder || 1, name: s.name })); } catch { return []; } }
 
 export function getPlayerUrl(id: string, type: 'movie' | 'serie', season?: number, episode?: number, options?: { color?: string; transparent?: boolean; noEpList?: boolean }, player: 1 | 2 = 1): string {
-  const SUPERFLIX_BASE = 'https://superflixapi.pro';
+  const SUPERFLIX_BASE = 'https://www2.superflixapi.pro';
   let url = type === 'movie' ? `${SUPERFLIX_BASE}/filme/${id}` : `${SUPERFLIX_BASE}/serie/${id}${season ? `/${season}` : ''}${episode ? `/${episode}` : ''}`;
   const params: string[] = []; if (options?.noEpList) params.push('noEpList'); if (options?.transparent) params.push('transparent'); if (options?.color) params.push(`color:${options.color.replace('#','')}`); if (params.length) url += `#${params.join('#')}`; return url;
 }
 
 export interface DirectStream { streamUrl: string; referer?: string; kind?: 'hls' | 'dash' | 'mp4' | 'unknown'; }
 export function playbackProxyUrl(streamUrl: string, referer?: string): string { const base = `${BACKEND_URL}/functions/v1/playback-proxy`; const params = new URLSearchParams({ url: streamUrl }); if (referer) params.set('referer', referer); return `${base}?${params.toString()}`; }
-export async function getDirectStreamUrl(sourceUrl: string): Promise<DirectStream | null> { try { const res = await fetch(`${BACKEND_URL}/functions/v1/extract-stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: sourceUrl }) }); if (!res.ok) return null; const data = await res.json(); if (!data || !data.streamUrl) return null; return data; } catch { return null; } }
+export async function getDirectStreamUrl(sourceUrl: string): Promise<DirectStream | null> { try { console.log('Extracting from:', sourceUrl); const res = await fetch(`${BACKEND_URL}/functions/v1/extract-stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: sourceUrl }) }); if (!res.ok) { console.error('Extraction request failed:', res.status); return null; } const data = await res.json(); console.log('Extraction result:', data); if (!data || !data.streamUrl) return null; return data; } catch (e) { console.error('Extraction exception:', e); return null; } }
