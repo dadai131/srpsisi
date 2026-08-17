@@ -8,7 +8,10 @@ const corsHeaders = {
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 const AD_HINTS = ['ads', 'adserv', 'analytics', 'doubleclick', 'popads', 'popcash', 'click', 'track', 'pixel', 'banner', 'promo', 'gtm', 'googletag'];
-const isAdUrl = (u: string) => AD_HINTS.some((h) => u.toLowerCase().includes(h));
+const isAdUrl = (u: string) => {
+  if (u.includes('superflixapi.pro') || u.includes('xn--')) return false;
+  return AD_HINTS.some((h) => u.toLowerCase().includes(h));
+};
 
 function unescapeUrls(html: string): string {
   return html.replace(/\\\//g, '/').replace(/\\u002[fF]/g, '/').replace(/\\u0026/g, '&').replace(/&amp;/g, '&');
