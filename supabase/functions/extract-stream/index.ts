@@ -173,8 +173,9 @@ serve(async (req) => {
   try {
     const { url: sourceUrl } = await req.json();
     if (!sourceUrl || !/^https:\/\//.test(sourceUrl)) return new Response(JSON.stringify({ error: 'URL is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    console.log('Detectando mídia em:', sourceUrl);
+    console.log('Detecting media at:', sourceUrl);
     const { found, referer } = await detect(sourceUrl, 'https://www2.superflixapi.pro/');
+    console.log('Found media items:', found.length);
     if (found.length === 0) return new Response(JSON.stringify({ streamUrl: null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
 
     // securedLink do Player 1 vem primeiro; entre os demais, HLS > DASH > arquivo.
