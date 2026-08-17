@@ -20,6 +20,7 @@ const Watch = () => {
   const [loadingSeasons, setLoadingSeasons] = useState(false);
   const [seasonSource, setSeasonSource] = useState<'TMDB' | 'TVmaze' | ''>('');
   const [iframeLoading, setIframeLoading] = useState(false);
+  const [iframeError, setIframeError] = useState(false);
   const [directStream, setDirectStream] = useState<DirectStream | null>(null);
   const [loadingStream, setLoadingStream] = useState(false);
   const [streamFailed, setStreamFailed] = useState(false);
@@ -49,9 +50,22 @@ const Watch = () => {
     const count = current?.episode_count || 1;
     setEpisodeCount(count);
     if (episode > count) setEpisode(1);
-    setIframeLoading(true); setDirectStream(null); setStreamFailed(false);
-    const timer = setTimeout(() => setIframeLoading(false), 100);
-    return () => clearTimeout(timer);
+    setIframeLoading(true); 
+    setIframeError(false);
+    setDirectStream(null); 
+    setStreamFailed(false);
+    
+    const timer = setTimeout(() => setIframeLoading(false), 1500);
+    
+    // Timeout de 10 segundos para mostrar erro caso o embed não carregue (ex: bloqueio de provedor)
+    const errorTimer = setTimeout(() => {
+      if (activePlayer !== 3) setIframeError(true);
+    }, 10000);
+    
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(errorTimer);
+    };
   }, [season, episode, seasons]);
 
   // Player 3 logic: Secured Link Extraction
@@ -123,8 +137,20 @@ const Watch = () => {
         : activePlayer === 3 && loadingStream ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /><p className="text-xs text-muted-foreground">Carregando Player 3...</p></div>
         : activePlayer === 3 && streamFailed ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Player 3 não encontrou o HLS</p><p className="text-sm text-muted-foreground">O fluxo de extração não retornou um securedLink válido. Por favor, utilize o Player 1.</p><Button variant="default" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button></div>
         : activePlayer === 3 && playbackSrc ? <HlsPlayer key={playbackSrc} src={playbackSrc} isHls={directStream?.kind === 'hls'} onFatalError={() => { setDirectStream(null); setStreamFailed(true); }} />
+        : activePlayer === 1 && iframeError ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center">
+            <p className="text-foreground font-semibold">Este conteúdo está bloqueado.</p>
+            <p className="text-sm text-muted-foreground">Contacte o proprietário do site para corrigir o problema.</p>
+            <Button variant="default" size="sm" onClick={() => { setIframeError(false); setIframeLoading(true); setTimeout(() => setIframeLoading(false), 1500); }}>Tentar novamente</Button>
+          </div>
         : activePlayer === 1 && (iframeLoading || !playerUrl) ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2">{!playerUrl ? <><p className="text-foreground font-semibold">Player indisponível</p><p className="text-sm text-muted-foreground">Não foi possível carregar este player.</p></> : <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />}</div>
         : activePlayer === 1 && playerUrl ? <iframe key={`${activePlayer}-${id}-${season}-${episode}`} src={playerUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen frameBorder="0" scrolling="no" referrerPolicy="no-referrer-when-downgrade" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" title="Player" />
+        : activePlayer === 2 && iframeError ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center">
+            <p className="text-foreground font-semibold">Este conteúdo está bloqueado.</p>
+            <p className="text-sm text-muted-foreground">Contacte o proprietário do site para corrigir o problema.</p>
+            <Button variant="default" size="sm" onClick={() => { setIframeError(false); setIframeLoading(true); setTimeout(() => setIframeLoading(false), 1500); }}>Tentar novamente</Button>
+          </div>
+        : activePlayer === 2 && (iframeLoading || !playerUrl) ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2">{!playerUrl ? <><p className="text-foreground font-semibold">Player indisponível</p><p className="text-sm text-muted-foreground">Não foi possível carregar este player.</p></> : <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />}</div>
+        : activePlayer === 2 && playerUrl ? <iframe key={`${activePlayer}-${id}-${season}-${episode}`} src={playerUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen frameBorder="0" scrolling="no" referrerPolicy="no-referrer-when-downgrade" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" title="Player" />
         : <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>}
       </div>
 
