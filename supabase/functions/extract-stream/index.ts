@@ -154,7 +154,7 @@ async function handleProxy(target: string, refererParam: string | null, req: Req
   try { targetUrl = new URL(target); } catch { return new Response(JSON.stringify({ error: 'URL inválida' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }); }
   if (targetUrl.protocol !== 'https:' && targetUrl.protocol !== 'http:') return new Response(JSON.stringify({ error: 'Protocolo não permitido' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-  const referer = refererParam || 'https://superflixapi.pro/';
+  const referer = refererParam || 'https://superflixapi.pro';
   const upstreamHeaders: Record<string, string> = { 'User-Agent': UA, 'Referer': referer, 'Origin': new URL(referer).origin, 'Accept': '*/*' };
   const range = req.headers.get('range');
   if (range) upstreamHeaders['Range'] = range;
