@@ -43,6 +43,8 @@ function collectMedia(rawHtml: string): Found[] {
   const out: Found[] = [];
   const seen = new Set<string>();
 
+  console.log("HTML length for analysis:", html.length);
+
   // Player 1: a resposta JSON contém explicitamente securedLink.
   const securedPatterns = [
     /["']securedLink["']\s*:\s*["']([^"']+)["']/gi,
@@ -67,13 +69,17 @@ function collectMedia(rawHtml: string): Found[] {
     { re: /(https?:\/\/[^"'\s\\<>()]+\/master\.txt[^"'\s\\<>()]*)/gi, kind: 'hls' },
     { re: /sources\s*:\s*\[\s*\{\s*file\s*:\s*["']([^"']+)["']/gi, kind: 'hls' },
     { re: /file\s*:\s*["'](https?:\/\/[^"']+)["']/gi, kind: 'hls' },
-    // Adicionando matchers para URLs ofuscadas ou em arrays de scripts
-    { re: /["'](https?:\/\/[^"']+\.(?:m3u8|mp4|mpd)(?:\?[^"']*)?)["']/gi, kind: 'hls' }
+    { re: /["'](https?:\/\/[^"']+\.(?:m3u8|mp4|mpd)(?:\?[^"']*)?)["']/gi, kind: 'hls' },
+    // Regex adicional para capturar URLs que podem estar escapadas de forma diferente
+    { re: /(https?:\\\/\\\/[^"'\s\\]+\.m3u8[^"'\s\\]*)/gi, kind: 'hls' }
   ];
 
   for (const { re, kind } of patterns) {
     for (const m of html.matchAll(re)) {
-      const url = m[1];
+      let url = m[1];
+      if (url.includes('\\/')) {
+        url = url.replace(/\\\//g, '/');
+      }
       if (seen.has(url) || isAdUrl(url)) continue;
       seen.add(url);
       const detectedKind: Kind = /\.m3u8(?:\?|$)|\/m3\//i.test(url) ? 'hls' : /\.mpd(?:\?|$)/i.test(url) ? 'dash' : 'file';
