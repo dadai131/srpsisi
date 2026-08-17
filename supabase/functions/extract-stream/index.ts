@@ -6,54 +6,54 @@ const corsHeaders = {
   'Access-Control-Expose-Headers': 'content-length, content-range, accept-ranges',
 };
 
-const UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+const AD_HINTS = ['ads', 'adserv', 'analytics', 'doubleclick', 'popads', 'popcash', 'click', 'track', 'pixel', 'banner', 'promo', 'gtm', 'googletag'];
+const isAdUrl = (u: string) => AD_HINTS.some((h) => u.toLowerCase().includes(h));
 
-const AD_HINTS = [
-  'ads', 'adserv', 'analytics', 'doubleclick', 'popads', 'popcash', 'click',
-  'track', 'pixel', 'banner', 'promo', 'gtm', 'googletag',
-];
-
-const isAdUrl = (u: string) => {
-  const low = u.toLowerCase();
-  return AD_HINTS.some((h) => low.includes(h));
-};
-
-/** Normaliza URLs escapadas em JS (\/\/, \u002f, &amp;) */
 function unescapeUrls(html: string): string {
-  return html
-    .replace(/\\\//g, '/')
-    .replace(/\\u002[fF]/g, '/')
-    .replace(/\\u0026/g, '&')
-    .replace(/&amp;/g, '&');
+  return html.replace(/\\\//g, '/').replace(/\\u002[fF]/g, '/').replace(/\\u0026/g, '&').replace(/&amp;/g, '&');
 }
 
-/** Decodifica blocos base64 (atob("..."), "base64,....") que costumam esconder o link */
 function decodeBase64Blobs(html: string): string {
   let extra = '';
   const candidates = [
     ...html.matchAll(/atob\(\s*["']([A-Za-z0-9+/=]{40,})["']\s*\)/g),
     ...html.matchAll(/["']([A-Za-z0-9+/=]{80,})["']/g),
   ].map((m) => m[1]);
-
   for (const c of candidates.slice(0, 40)) {
     try {
       const decoded = atob(c);
       if (/https?:\/\//.test(decoded)) extra += '\n' + decoded;
-    } catch { /* não é base64 válido */ }
+    } catch { /* not base64 */ }
   }
   return extra;
 }
 
 type Kind = 'hls' | 'dash' | 'file';
-
-interface Found {
-  url: string;
-  kind: Kind;
-}
+interface Found { url: string; kind: Kind; secured?: boolean; }
 
 function collectMedia(rawHtml: string): Found[] {
-  const html = unescapeUrls(rawHtml) + decodeBase64Blobs(rawHtml);
+  const normalized = unescapeUrls(rawHtml);
+  const html = normalized + decodeBase64Blobs(rawHtml);
+  const out: Found[] = [];
+  const seen = new Set<string>();
+
+  // Player 1: a resposta JSON contém explicitamente securedLink.
+  // Esse link é a fonte prioritária do Player 3 e normalmente é um M3U8 temporário.
+  const securedPatterns = [
+    /["']securedLink["']\s*:\s*["']([^"']+)["']/gi,
+    /["']secured_link["']\s*:\s*["']([^"']+)["']/gi,
+    /["']secureLink["']\s*:\s*["']([^"']+)["']/gi,
+  ];
+  for (const re of securedPatterns) {
+    for (const m of html.matchAll(re)) {
+      const url = m[1].replace(/\\\//g, '/').replace(/\\u0026/g, '&');
+      if (!/^https?:\/\//i.test(url) || isAdUrl(url) || seen.has(url)) continue;
+      const kind: Kind = /\.m3u8(?:\?|$)|\/m3\//i.test(url) ? 'hls' : /\.mpd(?:\?|$)/i.test(url) ? 'dash' : 'file';
+      seen.add(url);
+      out.push({ url, kind, secured: true });
+    }
+  }
 
   const patterns: Array<{ re: RegExp; kind: Kind }> = [
     { re: /(https?:\/\/[^"'\s\\<>()]+\.m3u8[^"'\s\\<>()]*)/gi, kind: 'hls' },
@@ -63,14 +63,12 @@ function collectMedia(rawHtml: string): Found[] {
     { re: /(https?:\/\/[^"'\s\\<>()]+\/master\.txt[^"'\s\\<>()]*)/gi, kind: 'hls' },
   ];
 
-  const seen = new Set<string>();
-  const out: Found[] = [];
   for (const { re, kind } of patterns) {
     for (const m of html.matchAll(re)) {
       const url = m[1];
       if (seen.has(url) || isAdUrl(url)) continue;
       seen.add(url);
-      out.push({ url, kind });
+      out.push({ url, kind, secured: false });
     }
   }
   return out;
@@ -78,28 +76,18 @@ function collectMedia(rawHtml: string): Found[] {
 
 function findIframes(rawHtml: string): string[] {
   const html = unescapeUrls(rawHtml);
-  return [...html.matchAll(/<iframe[^>]+src=["']([^"']+)["']/gi)]
-    .map((m) => m[1])
-    .filter((u) => /^https?:\/\//.test(u) && !isAdUrl(u));
+  return [...html.matchAll(/<iframe[^>]+src=["']([^"']+)["']/gi)].map((m) => m[1]).filter((u) => /^https?:\/\//.test(u) && !isAdUrl(u));
 }
 
 async function fetchPage(url: string, referer: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': UA,
-      'Referer': referer,
-      'Accept': 'text/html,application/xhtml+xml,*/*',
-    },
-  });
+  const res = await fetch(url, { headers: { 'User-Agent': UA, 'Referer': referer, 'Accept': 'text/html,application/xhtml+xml,*/*' } });
   return await res.text();
 }
 
-/** Busca recursiva seguindo iframes (profundidade máxima 2) */
 async function detect(url: string, referer: string, depth = 0): Promise<{ found: Found[]; referer: string }> {
   const html = await fetchPage(url, referer);
   const found = collectMedia(html);
   if (found.length > 0 || depth >= 2) return { found, referer: url };
-
   for (const iframe of findIframes(html).slice(0, 4)) {
     try {
       const nested = await detect(iframe, url, depth + 1);
@@ -111,13 +99,8 @@ async function detect(url: string, referer: string, depth = 0): Promise<{ found:
   return { found: [], referer: url };
 }
 
-interface Variant {
-  url: string;
-  resolution?: string;
-  bandwidth: number;
-}
+interface Variant { url: string; resolution?: string; bandwidth: number; }
 
-/** Lê o master playlist HLS e devolve as qualidades ordenadas (melhor primeiro) */
 async function readHlsVariants(masterUrl: string, referer: string): Promise<Variant[]> {
   try {
     const res = await fetch(masterUrl, { headers: { 'User-Agent': UA, 'Referer': referer } });
@@ -140,75 +123,34 @@ async function readHlsVariants(masterUrl: string, referer: string): Promise<Vari
   }
 }
 
-/** Proxy de playback: repassa manifest/segmentos com Referer e User-Agent corretos */
 async function handleProxy(target: string, refererParam: string | null, req: Request): Promise<Response> {
   let targetUrl: URL;
-  try {
-    targetUrl = new URL(target);
-  } catch {
-    return new Response(JSON.stringify({ error: 'URL inválida' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-  if (targetUrl.protocol !== 'https:' && targetUrl.protocol !== 'http:') {
-    return new Response(JSON.stringify({ error: 'Protocolo não permitido' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
+  try { targetUrl = new URL(target); } catch { return new Response(JSON.stringify({ error: 'URL inválida' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }); }
+  if (targetUrl.protocol !== 'https:' && targetUrl.protocol !== 'http:') return new Response(JSON.stringify({ error: 'Protocolo não permitido' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   const referer = refererParam || 'https://superflixapi.pro/';
-  const upstreamHeaders: Record<string, string> = {
-    'User-Agent': UA,
-    'Referer': referer,
-    'Origin': new URL(referer).origin,
-    'Accept': '*/*',
-  };
+  const upstreamHeaders: Record<string, string> = { 'User-Agent': UA, 'Referer': referer, 'Origin': new URL(referer).origin, 'Accept': '*/*' };
   const range = req.headers.get('range');
   if (range) upstreamHeaders['Range'] = range;
-
   const upstream = await fetch(targetUrl.toString(), { headers: upstreamHeaders, redirect: 'follow' });
   const contentType = upstream.headers.get('content-type') || '';
-  const isPlaylist =
-    /mpegurl|dash\+xml/i.test(contentType) ||
-    /\.m3u8(\?|$)|\/m3\/|master\.txt/i.test(targetUrl.pathname + targetUrl.search);
-
+  const isPlaylist = /mpegurl|dash\+xml/i.test(contentType) || /\.m3u8(\?|$)|\/m3\/|master\.txt/i.test(targetUrl.pathname + targetUrl.search);
   const selfBase = new URL(req.url);
   const proxyBase = `${selfBase.origin}${selfBase.pathname}`;
-  const wrap = (u: string) =>
-    `${proxyBase}?proxy=${encodeURIComponent(u)}&referer=${encodeURIComponent(referer)}`;
+  const wrap = (u: string) => `${proxyBase}?proxy=${encodeURIComponent(u)}&referer=${encodeURIComponent(referer)}`;
 
   if (isPlaylist) {
     const body = await upstream.text();
     if (body.trimStart().startsWith('#EXTM3U')) {
-      const rewritten = body
-        .split(/\r?\n/)
-        .map((line) => {
-          const trimmed = line.trim();
-          if (!trimmed) return line;
-          if (trimmed.startsWith('#')) {
-            // Reescreve URI="..." (chaves, mapas, mídia alternativa)
-            return trimmed.replace(/URI="([^"]+)"/g, (_m, u) =>
-              `URI="${wrap(new URL(u, upstream.url).toString())}"`,
-            );
-          }
-          return wrap(new URL(trimmed, upstream.url).toString());
-        })
-        .join('\n');
-      return new Response(rewritten, {
-        status: upstream.status,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/vnd.apple.mpegurl',
-          'Cache-Control': 'no-store',
-        },
-      });
+      const rewritten = body.split(/\r?\n/).map((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return line;
+        if (trimmed.startsWith('#')) return trimmed.replace(/URI="([^"]+)"/g, (_m, u) => `URI="${wrap(new URL(u, upstream.url).toString())}"`);
+        return wrap(new URL(trimmed, upstream.url).toString());
+      }).join('\n');
+      return new Response(rewritten, { status: upstream.status, headers: { ...corsHeaders, 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'no-store' } });
     }
-    return new Response(body, {
-      status: upstream.status,
-      headers: { ...corsHeaders, 'Content-Type': contentType || 'text/plain' },
-    });
+    return new Response(body, { status: upstream.status, headers: { ...corsHeaders, 'Content-Type': contentType || 'text/plain' } });
   }
 
   const headers = new Headers(corsHeaders);
@@ -220,60 +162,29 @@ async function handleProxy(target: string, refererParam: string | null, req: Req
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
-
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   const url = new URL(req.url);
   const proxyTarget = url.searchParams.get('proxy');
   if (proxyTarget) {
-    try {
-      return await handleProxy(proxyTarget, url.searchParams.get('referer'), req);
-    } catch (e) {
-      console.error('Erro no proxy de playback:', String(e));
-      return new Response(JSON.stringify({ error: String(e) }), {
-        status: 502,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    try { return await handleProxy(proxyTarget, url.searchParams.get('referer'), req); }
+    catch (e) { return new Response(JSON.stringify({ error: String(e) }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }); }
   }
 
   try {
     const { url: sourceUrl } = await req.json();
-    if (!sourceUrl || !/^https:\/\//.test(sourceUrl)) {
-      return new Response(JSON.stringify({ error: 'URL is required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
+    if (!sourceUrl || !/^https:\/\//.test(sourceUrl)) return new Response(JSON.stringify({ error: 'URL is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     console.log('Detectando mídia em:', sourceUrl);
     const { found, referer } = await detect(sourceUrl, 'https://superflixapi.pro/');
+    if (found.length === 0) return new Response(JSON.stringify({ streamUrl: null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
 
-    if (found.length === 0) {
-      console.log('Nenhuma mídia encontrada');
-      return new Response(JSON.stringify({ streamUrl: null }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      });
-    }
-
-    // Prioridade: HLS > DASH > arquivo direto
-    const order: Kind[] = ['hls', 'dash', 'file'];
-    const best = found.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind))[0];
-    console.log('Mídia escolhida:', best.kind, best.url);
-
+    // securedLink do Player 1 vem primeiro; entre os demais, HLS > DASH > arquivo.
+    const best = found.find((item) => item.secured) || found.sort((a, b) => {
+      const order: Kind[] = ['hls', 'dash', 'file'];
+      return order.indexOf(a.kind) - order.indexOf(b.kind);
+    })[0];
     const variants = best.kind === 'hls' ? await readHlsVariants(best.url, referer) : [];
-
-    return new Response(
-      JSON.stringify({ streamUrl: best.url, kind: best.kind, variants, referer }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
-    );
+    return new Response(JSON.stringify({ streamUrl: best.url, kind: best.kind, variants, referer, source: best.secured ? 'securedLink' : 'detected' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
   } catch (error) {
-    console.error('Extraction error:', error);
-    return new Response(JSON.stringify({ error: String(error) }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    return new Response(JSON.stringify({ error: String(error) }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 });
   }
 });
