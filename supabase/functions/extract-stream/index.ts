@@ -176,7 +176,25 @@ serve(async (req) => {
     const { url: sourceUrl } = await req.json();
     if (!sourceUrl || !/^https:\/\//.test(sourceUrl)) return new Response(JSON.stringify({ error: 'URL is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     console.log('Detecting media at:', sourceUrl);
-    const { found, referer } = await detect(sourceUrl, 'https://superflixapi.pro/');
+    
+    // Tenta primeiro o link direto do embed que geralmente contém os dados JSON/HTML com securedLink
+    const embedUrl = sourceUrl.includes('/filme/') 
+      ? sourceUrl.replace('superflixapi.pro/filme/', 'superflixapi.pro/api/filme/') 
+      : sourceUrl.replace('superflixapi.pro/serie/', 'superflixapi.pro/api/serie/');
+    
+    console.log('Trying API endpoint first:', embedUrl);
+    
+    let detectResult = await detect(embedUrl, 'https://superflixapi.pro/');
+    let found = detectResult.found;
+    let referer = detectResult.referer;
+    
+    if (found.length === 0) {
+      console.log('API endpoint failed, trying original URL...');
+      detectResult = await detect(sourceUrl, 'https://superflixapi.pro/');
+      found = detectResult.found;
+      referer = detectResult.referer;
+    }
+    
     console.log('Found media items:', found.length);
     if (found.length === 0) return new Response(JSON.stringify({ streamUrl: null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
 
