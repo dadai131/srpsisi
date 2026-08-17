@@ -13,6 +13,8 @@ const isAdUrl = (u: string) => {
   return AD_HINTS.some((h) => u.toLowerCase().includes(h));
 };
 
+const SUPERFLIX_BASE = 'https://www2.superflixapi.pro';
+
 function unescapeUrls(html: string): string {
   return html.replace(/\\\//g, '/').replace(/\\u002[fF]/g, '/').replace(/\\u0026/g, '&').replace(/&amp;/g, '&');
 }
