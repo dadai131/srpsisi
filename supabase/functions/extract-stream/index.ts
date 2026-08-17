@@ -82,8 +82,24 @@ function findIframes(rawHtml: string): string[] {
 }
 
 async function fetchPage(url: string, referer: string): Promise<string> {
-  const res = await fetch(url, { headers: { 'User-Agent': UA, 'Referer': referer, 'Accept': 'text/html,application/xhtml+xml,*/*' } });
-  return await res.text();
+  try {
+    const res = await fetch(url, { headers: { 
+      'User-Agent': UA, 
+      'Referer': referer, 
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+      'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache'
+    } });
+    if (!res.ok) {
+      console.log(`Fetch failed for ${url}: ${res.status}`);
+      return '';
+    }
+    return await res.text();
+  } catch (e) {
+    console.log(`Fetch error for ${url}: ${e}`);
+    return '';
+  }
 }
 
 async function detect(url: string, referer: string, depth = 0): Promise<{ found: Found[]; referer: string }> {
