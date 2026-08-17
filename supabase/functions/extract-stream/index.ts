@@ -86,10 +86,12 @@ async function fetchPage(url: string, referer: string): Promise<string> {
 
 async function detect(url: string, referer: string, depth = 0): Promise<{ found: Found[]; referer: string }> {
   const html = await fetchPage(url, referer);
+  console.log('HTML length for', url, ':', html.length);
   const found = collectMedia(html);
   if (found.length > 0 || depth >= 2) return { found, referer: url };
   for (const iframe of findIframes(html).slice(0, 4)) {
     try {
+      console.log('Following iframe:', iframe);
       const nested = await detect(iframe, url, depth + 1);
       if (nested.found.length > 0) return nested;
     } catch (e) {
