@@ -16,8 +16,14 @@ interface HlsPlayerProps {
 export const HlsPlayer = ({ src, isHls, onFatalError }: HlsPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const onFatalErrorRef = useRef(onFatalError);
   const [qualities, setQualities] = useState<Quality[]>([]);
   const [currentLevel, setCurrentLevel] = useState(-1);
+
+  // Mantém o callback atualizado sem recriar o player (evita closure velha).
+  useEffect(() => {
+    onFatalErrorRef.current = onFatalError;
+  }, [onFatalError]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -29,6 +35,7 @@ export const HlsPlayer = ({ src, isHls, onFatalError }: HlsPlayerProps) => {
     const nativeHls = video.canPlayType('application/vnd.apple.mpegurl') !== '';
 
     if (isHls && Hls.isSupported() && !nativeHls) {
+
       const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
       hlsRef.current = hls;
       hls.loadSource(src);
