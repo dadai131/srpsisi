@@ -19,7 +19,7 @@ export interface TrialAccess {
 const b64url = (s: string) =>
   btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-export const decodeToken = (token: string): { c?: string; exp?: number } | null => {
+export const decodeToken = (token: string): { u?: string; c?: string; exp?: number } | null => {
   try {
     const b = token.replace(/-/g, '+').replace(/_/g, '/');
     return JSON.parse(atob(b + '='.repeat((4 - (b.length % 4)) % 4)));
@@ -31,7 +31,11 @@ export const decodeToken = (token: string): { c?: string; exp?: number } | null 
 const rand = (n: number) => {
   const chars = 'abcdefghijkmnopqrstuvwxyz23456789';
   const buf = new Uint8Array(n);
-  (globalThis.crypto ?? ({ getRandomValues: () => buf } as never)).getRandomValues(buf);
+  if (globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(buf);
+  } else {
+    for (let i = 0; i < n; i++) buf[i] = Math.floor(Math.random() * 256);
+  }
   return Array.from(buf, b => chars[b % chars.length]).join('');
 };
 
@@ -58,9 +62,13 @@ export const siteOrigin = () =>
  * Format: /live/<token>/playlist.m3u
  * Updated to return a single playlist URL as requested by the user.
  */
-export function streamUrl(ch: Channel, format: PlaylistFormat, trial?: TrialAccess): string {
+const EXT_BY_FORMAT: Record<PlaylistFormat, string> = {
+  m3u: 'm3u8', m3u8: 'm3u8', hls: 'm3u8', dash: 'mpd', ts: 'ts', xtream: 'm3u8', xmltv: 'm3u8',
+};
+
+export function streamUrl(ch: Channel, format: PlaylistFormat = 'm3u8', trial?: TrialAccess): string {
   const token = trial?.token ?? createTrial().token;
-  return `${siteOrigin()}/live/${token}/${ch.id}.m3u8`;
+  return `${siteOrigin()}/live/${token}/${encodeURIComponent(ch.id)}.${EXT_BY_FORMAT[format] ?? 'm3u8'}`;
 }
 
 /** M3U / M3U8 / HLS / DASH / TS playlist (extended M3U with logos and groups). */

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ const Watch = () => {
   const [seasonSource, setSeasonSource] = useState<'TMDB' | 'TVmaze' | ''>('');
   const [iframeLoading, setIframeLoading] = useState(false);
   const [iframeError, setIframeError] = useState(false);
+  const iframeLoadedRef = useRef(false);
   const [directStream, setDirectStream] = useState<DirectStream | null>(null);
   const [loadingStream, setLoadingStream] = useState(false);
   const [streamFailed, setStreamFailed] = useState(false);
@@ -140,17 +141,17 @@ const Watch = () => {
         : activePlayer === 1 && iframeError ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center">
             <p className="text-foreground font-semibold">Este conteúdo está bloqueado.</p>
             <p className="text-sm text-muted-foreground">Contacte o proprietário do site para corrigir o problema.</p>
-            <Button variant="default" size="sm" onClick={() => { setIframeError(false); setIframeLoading(true); setTimeout(() => setIframeLoading(false), 1500); }}>Tentar novamente</Button>
+            <Button variant="default" size="sm" onClick={() => { iframeLoadedRef.current = false; setIframeError(false); setIframeLoading(true); setTimeout(() => setIframeLoading(false), 1500); }}>Tentar novamente</Button>
           </div>
         : activePlayer === 1 && (iframeLoading || !playerUrl) ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2">{!playerUrl ? <><p className="text-foreground font-semibold">Player indisponível</p><p className="text-sm text-muted-foreground">Não foi possível carregar este player.</p></> : <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />}</div>
-        : activePlayer === 1 && playerUrl ? <iframe key={`${activePlayer}-${id}-${season}-${episode}`} src={playerUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen frameBorder="0" scrolling="no" referrerPolicy="no-referrer-when-downgrade" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" title="Player" />
+        : activePlayer === 1 && playerUrl ? <iframe key={`${activePlayer}-${id}-${season}-${episode}`} src={playerUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen frameBorder="0" scrolling="no" referrerPolicy="no-referrer-when-downgrade" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" onLoad={() => { iframeLoadedRef.current = true; setIframeLoading(false); setIframeError(false); }} title="Player" />
         : activePlayer === 2 && iframeError ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center">
             <p className="text-foreground font-semibold">Este conteúdo está bloqueado.</p>
             <p className="text-sm text-muted-foreground">Contacte o proprietário do site para corrigir o problema.</p>
-            <Button variant="default" size="sm" onClick={() => { setIframeError(false); setIframeLoading(true); setTimeout(() => setIframeLoading(false), 1500); }}>Tentar novamente</Button>
+            <Button variant="default" size="sm" onClick={() => { iframeLoadedRef.current = false; setIframeError(false); setIframeLoading(true); setTimeout(() => setIframeLoading(false), 1500); }}>Tentar novamente</Button>
           </div>
         : activePlayer === 2 && (iframeLoading || !playerUrl) ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2">{!playerUrl ? <><p className="text-foreground font-semibold">Player indisponível</p><p className="text-sm text-muted-foreground">Não foi possível carregar este player.</p></> : <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />}</div>
-        : activePlayer === 2 && playerUrl ? <iframe key={`${activePlayer}-${id}-${season}-${episode}`} src={playerUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen frameBorder="0" scrolling="no" referrerPolicy="no-referrer-when-downgrade" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" title="Player" />
+        : activePlayer === 2 && playerUrl ? <iframe key={`${activePlayer}-${id}-${season}-${episode}`} src={playerUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen frameBorder="0" scrolling="no" referrerPolicy="no-referrer-when-downgrade" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" onLoad={() => { iframeLoadedRef.current = true; setIframeLoading(false); setIframeError(false); }} title="Player" />
         : <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>}
       </div>
 
