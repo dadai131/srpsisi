@@ -34,36 +34,41 @@ function tmdbToContentItem(item: TmdbResult, type: ContentType): ContentItem { r
 export async function fetchCalendar(): Promise<CalendarItem[]> {
   try {
     const today = new Date();
-    const items: CalendarItem[] = [];
-    // Buscar lançamentos de hoje e dos últimos 7 dias
-    for (let i = 0; i < 7; i++) {
-      const d = new Date();
+    const dates = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(today);
       d.setDate(today.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
-      const res = await fetch(tmdbUrl('/discover/tv', `language=pt-BR&first_air_date.gte=${dateStr}&first_air_date.lte=${dateStr}&sort_by=popularity.desc`));
-      if (res.ok) {
+      return d.toISOString().split('T')[0];
+    });
+    // Requisições em paralelo (antes eram sequenciais: 7x mais lento)
+    const results = await Promise.all(dates.map(async dateStr => {
+      try {
+        const res = await fetch(tmdbUrl('/discover/tv', `language=pt-BR&first_air_date.gte=${dateStr}&first_air_date.lte=${dateStr}&sort_by=popularity.desc`));
+        if (!res.ok) return [] as CalendarItem[];
         const data = await res.json();
-        (data.results || []).slice(0, 10).forEach((r: any) => {
-          items.push({
-            id: r.id.toString(),
-            title: r.name || r.title,
-            poster: r.poster_path ? `${TMDB_IMAGE_BASE}${r.poster_path}` : POSTER_FALLBACK,
-            type: 'serie',
-            releaseDate: dateStr
-          });
-        });
-      }
-    }
-    return items;
+        return (data.results || []).slice(0, 10).map((r: any) => ({
+          id: r.id.toString(),
+          title: r.name || r.title,
+          poster: r.poster_path ? `${TMDB_IMAGE_BASE}${r.poster_path}` : POSTER_FALLBACK,
+          type: 'serie' as const,
+          releaseDate: dateStr,
+        }));
+      } catch { return [] as CalendarItem[]; }
+    }));
+    const seen = new Set<string>();
+    return results.flat().filter(item => !seen.has(item.id) && seen.add(item.id));
   } catch { return []; }
 }
+
 
 export async function fetchContent(category: ContentType = 'all', query?: string): Promise<ContentItem[]> {
   try {
     if (query) { const res = await fetch(tmdbUrl('/search/multi', `language=pt-BR&query=${encodeURIComponent(query)}`)); if (!res.ok) return []; const data = await res.json(); return (data.results || []).filter((r: any) => r.media_type === 'movie' || r.media_type === 'tv').map((r: any) => tmdbToContentItem(r, r.media_type === 'movie' ? 'movie' : 'serie')); }
     const [movies, popularMovies, topMovies, upcoming, series, popularSeries, topSeries, todaySeries, anime, animeTop, animeRecent, animeToday, dorama, doramaTop, doramaRecent, nowPlaying] = await Promise.all([fetchTmdbTrending('movie'), fetchTmdbPopular('movie'), fetchTmdbTopRatedMovies(), fetchTmdbUpcomingMovies(), fetchTmdbTrending('tv'), fetchTmdbPopular('tv'), fetchTmdbTopRatedSeries(), fetchTmdbSeriesAiringToday(), fetchTmdbAnime(), fetchTmdbAnime('vote_average.desc&vote_count.gte=200'), fetchTmdbAnimeRecent(), fetchTmdbAnimeAiringToday(), fetchTmdbDorama(), fetchTmdbDorama('vote_average.desc&vote_count.gte=100'), fetchTmdbDoramaRecent(), fetchTmdbNowPlaying()]);
     const map = (xs: TmdbResult[], type: ContentType) => xs.map(x => tmdbToContentItem(x, type));
-    return [...map(movies,'movie'), ...map(popularMovies,'movie'), ...map(topMovies,'movie'), ...map(upcoming,'movie'), ...map(nowPlaying,'movie'), ...map(series,'serie'), ...map(popularSeries,'serie'), ...map(topSeries,'serie'), ...map(todaySeries,'serie'), ...map(anime,'anime'), ...map(animeTop,'anime'), ...map(animeRecent,'anime'), ...map(animeToday,'anime'), ...map(dorama,'dorama'), ...map(doramaTop,'dorama'), ...map(doramaRecent,'dorama')];
+    const all = [...map(movies,'movie'), ...map(popularMovies,'movie'), ...map(topMovies,'movie'), ...map(upcoming,'movie'), ...map(nowPlaying,'movie'), ...map(series,'serie'), ...map(popularSeries,'serie'), ...map(topSeries,'serie'), ...map(todaySeries,'serie'), ...map(anime,'anime'), ...map(animeTop,'anime'), ...map(animeRecent,'anime'), ...map(animeToday,'anime'), ...map(dorama,'dorama'), ...map(doramaTop,'dorama'), ...map(doramaRecent,'dorama')];
+    // Remove duplicados (mesmo item aparece em trending/popular/top) para evitar keys repetidas no React
+    const seen = new Set<string>();
+    return all.filter(item => { const k = `${item.type}-${item.id}`; if (seen.has(k)) return false; seen.add(k); return true; });
   } catch { return []; }
 }
 

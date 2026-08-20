@@ -8,7 +8,7 @@ export default function LiveRedirect() {
   const { token = '', file = '' } = useParams();
 
   const state = useMemo(() => {
-    const payload = decodeToken(token) as any;
+    const payload = decodeToken(token);
     if (!payload?.exp) return { error: 'Link inválido.' };
     if (payload.exp * 1000 < Date.now()) return { error: 'Seu acesso gratuito expirou. Gere uma nova lista.' };
     

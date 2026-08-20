@@ -16,8 +16,14 @@ interface HlsPlayerProps {
 export const HlsPlayer = ({ src, isHls, onFatalError }: HlsPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const onFatalErrorRef = useRef(onFatalError);
   const [qualities, setQualities] = useState<Quality[]>([]);
   const [currentLevel, setCurrentLevel] = useState(-1);
+
+  // Mantém o callback atualizado sem recriar o player (evita closure velha).
+  useEffect(() => {
+    onFatalErrorRef.current = onFatalError;
+  }, [onFatalError]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -29,6 +35,7 @@ export const HlsPlayer = ({ src, isHls, onFatalError }: HlsPlayerProps) => {
     const nativeHls = video.canPlayType('application/vnd.apple.mpegurl') !== '';
 
     if (isHls && Hls.isSupported() && !nativeHls) {
+
       const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
       hlsRef.current = hls;
       hls.loadSource(src);
@@ -46,10 +53,12 @@ export const HlsPlayer = ({ src, isHls, onFatalError }: HlsPlayerProps) => {
 
       hls.on(Hls.Events.LEVEL_SWITCHED, (_e, data) => setCurrentLevel(data.level));
 
+      let networkRetries = 0;
       hls.on(Hls.Events.ERROR, (_e, data) => {
         if (!data.fatal) return;
         console.error('Erro fatal no HLS:', data.type, data.details);
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && networkRetries < 2) {
+          networkRetries += 1;
           hls.startLoad();
           return;
         }
@@ -59,7 +68,7 @@ export const HlsPlayer = ({ src, isHls, onFatalError }: HlsPlayerProps) => {
         }
         hls.destroy();
         hlsRef.current = null;
-        onFatalError?.();
+        onFatalErrorRef.current?.();
       });
     } else {
       video.src = src;
@@ -69,6 +78,8 @@ export const HlsPlayer = ({ src, isHls, onFatalError }: HlsPlayerProps) => {
     return () => {
       hlsRef.current?.destroy();
       hlsRef.current = null;
+      video.removeAttribute('src');
+      video.load();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src, isHls]);
@@ -86,8 +97,8 @@ export const HlsPlayer = ({ src, isHls, onFatalError }: HlsPlayerProps) => {
         autoPlay
         playsInline
         className="w-full h-full"
-        crossOrigin="anonymous"
       >
+
         Seu navegador não suporta o elemento de vídeo.
       </video>
 
