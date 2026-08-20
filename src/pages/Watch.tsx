@@ -50,23 +50,23 @@ const Watch = () => {
     const count = current?.episode_count || 1;
     setEpisodeCount(count);
     if (episode > count) setEpisode(1);
-    setIframeLoading(true); 
+    setIframeLoading(true);
     setIframeError(false);
-    setDirectStream(null); 
-    setStreamFailed(false);
-    
+    iframeLoadedRef.current = false;
+
     const timer = setTimeout(() => setIframeLoading(false), 1500);
-    
-    // Timeout de 10 segundos para mostrar erro caso o embed não carregue (ex: bloqueio de provedor)
+
+    // Timeout de 10s: só mostra erro se o iframe realmente não tiver carregado.
     const errorTimer = setTimeout(() => {
-      if (activePlayer !== 3) setIframeError(true);
+      if (activePlayer !== 3 && !iframeLoadedRef.current) setIframeError(true);
     }, 10000);
-    
+
     return () => {
       clearTimeout(timer);
       clearTimeout(errorTimer);
     };
-  }, [season, episode, seasons]);
+  }, [season, episode, seasons, activePlayer]);
+
 
   // Player 3 logic: Secured Link Extraction
   useEffect(() => {
