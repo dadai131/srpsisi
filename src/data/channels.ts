@@ -12,7 +12,7 @@ export interface ChannelCategory {
   emoji: string;
 }
 
-const EMBED_BASE = 'https://www2.embedtv.lat';
+const EMBED_BASE = 'https://ww5.embedtv.lat';
 const IMG_BASE = 'https://embedtv.lat/assets/images';
 
 export const categories: ChannelCategory[] = [
