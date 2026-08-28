@@ -109,7 +109,7 @@ const Watch = () => {
     setSearchParams(params, { replace: true });
   }, [season, episode, isSeries, setSearchParams]);
 
-  const ALLOWED_PLAYER_HOSTS = ['superflixapi.sbs','www2.superflixapi.sbs','superflixapi.cyou','superflixapi.fit','superflixapi.best','superflixapi.rest','superflixapi.help','www.primevicio.lat','primevicio.lat'];
+  const ALLOWED_PLAYER_HOSTS = ['superflixapi.beer','www2.superflixapi.beer','www.primevicio.lat','primevicio.lat'];
   const isAllowedPlayerUrl = (url: string) => { try { const u = new URL(url); return u.protocol === 'https:' && ALLOWED_PLAYER_HOSTS.includes(u.hostname); } catch { return false; } };
   const rawPlayerUrl = id ? getPlayerUrl(id, isSeries ? 'serie' : 'movie', isSeries ? season : undefined, isSeries ? episode : undefined, theme, 1) : '';
   const playerUrl = isAllowedPlayerUrl(rawPlayerUrl) ? rawPlayerUrl : '';

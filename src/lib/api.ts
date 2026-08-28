@@ -76,7 +76,7 @@ export interface SeasonInfo { season_number: number; episode_count: number; name
 export async function fetchTVMazeSeasons(id: string): Promise<SeasonInfo[]> { try { const res = await fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(id)}/seasons`); if (!res.ok) return []; const data = await res.json(); return (data || []).map((s: any) => ({ season_number: s.number, episode_count: s.episodeOrder || 1, name: s.name })); } catch { return []; } }
 
 export function getPlayerUrl(id: string, type: 'movie' | 'serie', season?: number, episode?: number, options?: { color?: string; transparent?: boolean; noEpList?: boolean }, player: 1 | 2 = 1): string {
-  const SUPERFLIX_BASE = 'https://superflixapi.sbs';
+  const SUPERFLIX_BASE = 'https://superflixapi.beer';
   let url = type === 'movie' ? `${SUPERFLIX_BASE}/filme/${id}` : `${SUPERFLIX_BASE}/serie/${id}${season ? `/${season}` : ''}${episode ? `/${episode}` : ''}`;
   const params: string[] = []; if (options?.noEpList) params.push('noEpList'); if (options?.transparent) params.push('transparent'); if (options?.color) params.push(`color:${options.color.replace('#','')}`); if (params.length) url += `#${params.join('#')}`; return url;
 }
