@@ -165,6 +165,22 @@ export function installAdBlock() {
     return originalWindowOpen(href, target, features);
   }) as typeof window.open;
 
+  // 2b) Bloqueia cliques em links que abrem redes de redirecionamento em nova aba
+  document.addEventListener(
+    'click',
+    (event) => {
+      const anchor = (event.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (anchor && isBlockedUrl(anchor.href)) {
+        event.preventDefault();
+        event.stopPropagation();
+        console.warn('[AdBlock] redirecionamento bloqueado:', anchor.href);
+      }
+    },
+    true,
+  );
+
+
+
   // 3) Remove nós de anúncio já presentes e futuros
   const sweep = () => {
     AD_SELECTORS.forEach((sel) => {
