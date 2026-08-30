@@ -110,10 +110,12 @@ const Watch = () => {
     setSearchParams(params, { replace: true });
   }, [season, episode, isSeries, setSearchParams]);
 
-  const ALLOWED_PLAYER_HOSTS = ['superflixapi.beer','www2.superflixapi.beer','www.primevicio.lat','primevicio.lat'];
+  const ALLOWED_PLAYER_HOSTS = ['superflixapi.beer','www2.superflixapi.beer','mgeb.top','www.mgeb.top','nhdapi.com','www.nhdapi.com','www.primevicio.lat','primevicio.lat'];
   const isAllowedPlayerUrl = (url: string) => { try { const u = new URL(url); return u.protocol === 'https:' && ALLOWED_PLAYER_HOSTS.includes(u.hostname); } catch { return false; } };
   const rawPlayerUrl = id ? getPlayerUrl(id, isSeries ? 'serie' : 'movie', isSeries ? season : undefined, isSeries ? episode : undefined, theme, 1) : '';
   const playerUrl = isAllowedPlayerUrl(rawPlayerUrl) ? rawPlayerUrl : '';
+  const rawPlayer2Url = id ? getPlayer2Url(id, isSeries ? 'serie' : 'movie', isSeries ? season : undefined, isSeries ? episode : undefined, p2Source) : '';
+  const player2Url = isAllowedPlayerUrl(rawPlayer2Url) ? rawPlayer2Url : '';
   const invalidContent = !id;
   const playbackSrc = directStream ? playbackProxyUrl(directStream.streamUrl, directStream.referer) : null;
 
