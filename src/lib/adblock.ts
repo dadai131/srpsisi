@@ -19,12 +19,16 @@ const AD_HOST_PATTERNS = [
   'scorecardresearch', 'moatads', 'sitescout', 'lijit', 'bidswitch',
   'trafficfactory', 'tsyndicate', 'stpd.cloud', 'a-ads', 'coinzilla',
   'cointraffic', 'adbluemedia', 'notifpush', 'push-notify', 'pushwhy',
+  'bagpipewraxle',
 ];
 
 // Padrões que só podem casar no início do host (evita bloquear domínios
 // legítimos como "uploads.example.com" ou "downloads.example.com").
 const AD_HOST_PREFIXES = ['ads.', 'ad.', 'adserver.'];
+// TLDs usados quase exclusivamente por redes de redirecionamento/anúncios.
+const AD_HOST_SUFFIXES = ['.qpon', '.sbs', '.cfd', '.icu', '.lol'];
 const AD_PATH_PATTERNS = ['/ads/', '/adframe', '/advert'];
+
 
 // Hosts que NUNCA devem ser bloqueados (backend, imagens, players, APIs).
 const ALLOWED_POPUP_HOSTS = ['t.me', 'telegram.me', 'unsplash.com', 'images.unsplash.com', 'superflixapi.beer'];
@@ -58,7 +62,9 @@ const isBlockedUrl = (raw: unknown): boolean => {
   if (host && ALLOWED_POPUP_HOSTS.some(allowed => host === allowed || host.endsWith('.' + allowed))) return false;
   if (AD_HOST_PATTERNS.some((p) => host.includes(p))) return true;
   if (host && AD_HOST_PREFIXES.some((p) => host.startsWith(p))) return true;
+  if (host && AD_HOST_SUFFIXES.some((s) => host.endsWith(s))) return true;
   return AD_PATH_PATTERNS.some((p) => path.includes(p));
+
 };
 
 const looksLikeAdNode = (el: Element): boolean => {
@@ -158,6 +164,22 @@ export function installAdBlock() {
     }
     return originalWindowOpen(href, target, features);
   }) as typeof window.open;
+
+  // 2b) Bloqueia cliques em links que abrem redes de redirecionamento em nova aba
+  document.addEventListener(
+    'click',
+    (event) => {
+      const anchor = (event.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (anchor && isBlockedUrl(anchor.href)) {
+        event.preventDefault();
+        event.stopPropagation();
+        console.warn('[AdBlock] redirecionamento bloqueado:', anchor.href);
+      }
+    },
+    true,
+  );
+
+
 
   // 3) Remove nós de anúncio já presentes e futuros
   const sweep = () => {
