@@ -62,7 +62,9 @@ const isBlockedUrl = (raw: unknown): boolean => {
   if (host && ALLOWED_POPUP_HOSTS.some(allowed => host === allowed || host.endsWith('.' + allowed))) return false;
   if (AD_HOST_PATTERNS.some((p) => host.includes(p))) return true;
   if (host && AD_HOST_PREFIXES.some((p) => host.startsWith(p))) return true;
+  if (host && AD_HOST_SUFFIXES.some((s) => host.endsWith(s))) return true;
   return AD_PATH_PATTERNS.some((p) => path.includes(p));
+
 };
 
 const looksLikeAdNode = (el: Element): boolean => {
