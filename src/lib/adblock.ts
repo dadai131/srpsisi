@@ -19,12 +19,16 @@ const AD_HOST_PATTERNS = [
   'scorecardresearch', 'moatads', 'sitescout', 'lijit', 'bidswitch',
   'trafficfactory', 'tsyndicate', 'stpd.cloud', 'a-ads', 'coinzilla',
   'cointraffic', 'adbluemedia', 'notifpush', 'push-notify', 'pushwhy',
+  'bagpipewraxle',
 ];
 
 // Padrões que só podem casar no início do host (evita bloquear domínios
 // legítimos como "uploads.example.com" ou "downloads.example.com").
 const AD_HOST_PREFIXES = ['ads.', 'ad.', 'adserver.'];
+// TLDs usados quase exclusivamente por redes de redirecionamento/anúncios.
+const AD_HOST_SUFFIXES = ['.qpon', '.sbs', '.cfd', '.icu', '.lol'];
 const AD_PATH_PATTERNS = ['/ads/', '/adframe', '/advert'];
+
 
 // Hosts que NUNCA devem ser bloqueados (backend, imagens, players, APIs).
 const ALLOWED_POPUP_HOSTS = ['t.me', 'telegram.me', 'unsplash.com', 'images.unsplash.com', 'superflixapi.beer'];
