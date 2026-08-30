@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { PlayerControls } from '@/components/PlayerControls';
 import { HlsPlayer } from '@/components/HlsPlayer';
 import { PlayerTheme } from '@/types/content';
-import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl, playbackProxyUrl, DirectStream, getDirectStreamUrl } from '@/lib/api';
+import { getPlayerUrl, getPlayer2Url, fetchTVMazeSeasons, SeasonInfo, tmdbUrl, playbackProxyUrl, DirectStream, getDirectStreamUrl } from '@/lib/api';
 
 const Watch = () => {
   const { type, id: rawId } = useParams<{ type: string; id: string }>();
@@ -21,6 +21,7 @@ const Watch = () => {
   const [seasonSource, setSeasonSource] = useState<'TMDB' | 'TVmaze' | ''>('');
   const [iframeLoading, setIframeLoading] = useState(false);
   const [iframeError, setIframeError] = useState(false);
+  const [p2Source, setP2Source] = useState<'mgeb' | 'nhd'>('mgeb');
   const iframeLoadedRef = useRef(false);
   const [directStream, setDirectStream] = useState<DirectStream | null>(null);
   const [loadingStream, setLoadingStream] = useState(false);
