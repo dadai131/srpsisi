@@ -31,7 +31,7 @@ const AD_PATH_PATTERNS = ['/ads/', '/adframe', '/advert'];
 
 
 // Hosts que NUNCA devem ser bloqueados (backend, imagens, players, APIs).
-const ALLOWED_POPUP_HOSTS = ['t.me', 'telegram.me', 'unsplash.com', 'images.unsplash.com', 'superflixapi.beer'];
+const ALLOWED_POPUP_HOSTS = ['t.me', 'telegram.me', 'unsplash.com', 'images.unsplash.com', 'superflixapi.beer', 'mgeb.top', 'nhdapi.com'];
 
 const AD_SELECTORS = [
   'ins.adsbygoogle',
