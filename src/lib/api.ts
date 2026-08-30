@@ -81,6 +81,18 @@ export function getPlayerUrl(id: string, type: 'movie' | 'serie', season?: numbe
   const params: string[] = []; if (options?.noEpList) params.push('noEpList'); if (options?.transparent) params.push('transparent'); if (options?.color) params.push(`color:${options.color.replace('#','')}`); if (params.length) url += `#${params.join('#')}`; return url;
 }
 
+// Player 2: APIs de embed externas (mgeb.top com fallback nhdapi.com)
+export function getPlayer2Url(id: string, type: 'movie' | 'serie', season?: number, episode?: number, source: 'mgeb' | 'nhd' = 'mgeb'): string {
+  if (source === 'nhd') {
+    return type === 'movie'
+      ? `https://nhdapi.com/embed/movie/${id}`
+      : `https://nhdapi.com/embed/tv/${id}/${season || 1}/${episode || 1}`;
+  }
+  return type === 'movie'
+    ? `https://mgeb.top/embed/${id}`
+    : `https://mgeb.top/embed/${id}/${season || 1}/${episode || 1}`;
+}
+
 export interface DirectStream { streamUrl: string; referer?: string; kind?: 'hls' | 'dash' | 'mp4' | 'unknown'; }
 export function playbackProxyUrl(streamUrl: string, referer?: string): string { const base = `${BACKEND_URL}/functions/v1/playback-proxy`; const params = new URLSearchParams({ url: streamUrl }); if (referer) params.set('referer', referer); return `${base}?${params.toString()}`; }
 export async function getDirectStreamUrl(sourceUrl: string): Promise<DirectStream | null> { try { console.log('Extracting from:', sourceUrl); const res = await fetch(`${BACKEND_URL}/functions/v1/extract-stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: sourceUrl }) }); if (!res.ok) { console.error('Extraction request failed:', res.status); return null; } const data = await res.json(); console.log('Extraction result:', data); if (!data || !data.streamUrl) return null; return data; } catch (e) { console.error('Extraction exception:', e); return null; } }
