@@ -132,7 +132,7 @@ const Watch = () => {
     <main className="pt-14"><div className="max-w-6xl mx-auto px-4 py-6">
       <div className="flex items-center gap-2 mb-3">
         <button onClick={() => { setActivePlayer(1); setStreamFailed(false); }} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 1 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 1</button>
-        <button onClick={() => { setActivePlayer(2); setStreamFailed(false); }} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 2 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 2</button>
+        <button onClick={() => { setActivePlayer(2); setP2Source('mgeb'); setStreamFailed(false); }} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 2 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 2</button>
         <button onClick={() => { setActivePlayer(3); setStreamFailed(false); }} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 3 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 3 • HLS (Sem Anúncios)</button>
       </div>
 
@@ -150,11 +150,14 @@ const Watch = () => {
         : activePlayer === 1 && playerUrl ? <iframe key={`${activePlayer}-${id}-${season}-${episode}`} src={playerUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen frameBorder="0" scrolling="no" referrerPolicy="no-referrer-when-downgrade" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" onLoad={() => { iframeLoadedRef.current = true; setIframeLoading(false); setIframeError(false); }} title="Player" />
         : activePlayer === 2 && iframeError ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center">
             <p className="text-foreground font-semibold">Este conteúdo está bloqueado.</p>
-            <p className="text-sm text-muted-foreground">Contacte o proprietário do site para corrigir o problema.</p>
-            <Button variant="default" size="sm" onClick={() => { iframeLoadedRef.current = false; setIframeError(false); setIframeLoading(true); setTimeout(() => setIframeLoading(false), 1500); }}>Tentar novamente</Button>
+            <p className="text-sm text-muted-foreground">Fonte atual: {p2Source === 'mgeb' ? 'mgeb.top' : 'nhdapi.com'}.</p>
+            <div className="flex gap-2">
+              <Button variant="default" size="sm" onClick={() => { iframeLoadedRef.current = false; setIframeError(false); setIframeLoading(true); setTimeout(() => setIframeLoading(false), 1500); }}>Tentar novamente</Button>
+              {p2Source === 'mgeb' && <Button variant="secondary" size="sm" onClick={() => { iframeLoadedRef.current = false; setIframeError(false); setIframeLoading(true); setP2Source('nhd'); }}>Fonte alternativa</Button>}
+            </div>
           </div>
-        : activePlayer === 2 && (iframeLoading || !playerUrl) ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2">{!playerUrl ? <><p className="text-foreground font-semibold">Player indisponível</p><p className="text-sm text-muted-foreground">Não foi possível carregar este player.</p></> : <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />}</div>
-        : activePlayer === 2 && playerUrl ? <iframe key={`${activePlayer}-${id}-${season}-${episode}`} src={playerUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen frameBorder="0" scrolling="no" referrerPolicy="no-referrer-when-downgrade" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" onLoad={() => { iframeLoadedRef.current = true; setIframeLoading(false); setIframeError(false); }} title="Player" />
+        : activePlayer === 2 && (iframeLoading || !player2Url) ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2">{!player2Url ? <><p className="text-foreground font-semibold">Player indisponível</p><p className="text-sm text-muted-foreground">Não foi possível carregar este player.</p></> : <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />}</div>
+        : activePlayer === 2 && player2Url ? <iframe key={`${activePlayer}-${p2Source}-${id}-${season}-${episode}`} src={player2Url} className="absolute inset-0 w-full h-full border-0" allowFullScreen frameBorder="0" scrolling="no" referrerPolicy="no-referrer-when-downgrade" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" onLoad={() => { iframeLoadedRef.current = true; setIframeLoading(false); setIframeError(false); }} title="Player 2" />
         : <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>}
       </div>
 
