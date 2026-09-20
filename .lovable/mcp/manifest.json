@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "sdk_version": "3.0.1",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://xfqocptliyukeypvylom.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "lokifil1",
+      "version": "0.1.0",
+      "title": "lokifil1"
+    },
+    "tools": [
+      {
+        "name": "search_catalog",
+        "title": "Buscar catálogo",
+        "description": "Busca filmes e séries disponíveis no catálogo público do LokiFilmes.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "Título do filme ou série."
+            },
+            "media_type": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "movie",
+                    "tv"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtre por filme ou série; use null para ambos."
+            },
+            "limit": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 20
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Quantidade de resultados; use null para 10."
+            }
+          },
+          "required": [
+            "query",
+            "media_type",
+            "limit"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_live_channels",
+        "title": "Listar canais ao vivo",
+        "description": "Lista os canais ao vivo do LokiFilmes sem revelar os endereços das fontes de vídeo.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "category": {
+              "description": "ID da categoria; use null para listar todos os canais.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "category"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
