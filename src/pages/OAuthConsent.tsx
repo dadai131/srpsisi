@@ -18,7 +18,7 @@ export default function OAuthConsent() {
   const [details, setDetails] = useState<AuthorizationDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const oauth = (supabase.auth as typeof supabase.auth & { oauth: OAuthApi }).oauth;
+  const oauth: OAuthApi = (supabase.auth as unknown as { oauth: OAuthApi }).oauth;
 
   useEffect(() => {
     let active = true;
