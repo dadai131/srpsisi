@@ -10,6 +10,8 @@ import LiveTV from "./pages/LiveTV";
 import NotFound from "./pages/NotFound";
 import WallpaperHome from "./pages/WallpaperHome";
 import LiveRedirect from "./pages/LiveRedirect";
+import AgentLogin from "./pages/AgentLogin";
+import OAuthConsent from "./pages/OAuthConsent";
 
 const queryClient = new QueryClient();
 
@@ -24,20 +26,20 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        {isLovableDomain ? (
-          <Routes>
+        <Routes>
+          <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
+          <Route path="/agent-login" element={<AgentLogin />} />
+          {isLovableDomain ? (
             <Route path="*" element={<WallpaperHome />} />
-          </Routes>
-        ) : (
-          <Routes>
+          ) : (<>
             <Route path="/" element={<Index />} />
             <Route path="/watch/:type/:id" element={<Watch />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/tv" element={<LiveTV />} />
             <Route path="/live/:token/:file" element={<LiveRedirect />} />
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        )}
+          </>)}
+        </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
