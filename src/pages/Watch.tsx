@@ -26,6 +26,7 @@ const Watch = () => {
   const [directStream, setDirectStream] = useState<DirectStream | null>(null);
   const [loadingStream, setLoadingStream] = useState(false);
   const [streamFailed, setStreamFailed] = useState(false);
+  const [streamAttempt, setStreamAttempt] = useState(0);
   const [theme, setTheme] = useState<PlayerTheme>({ color: 'e50914', transparent: false, noEpList: false });
   const isSeries = type === 'serie' || type === 'anime' || type === 'dorama';
 
@@ -70,7 +71,7 @@ const Watch = () => {
   }, [season, episode, seasons, activePlayer]);
 
 
-  // Player 3 logic: Secured Link Extraction
+  // Player 3: resolve fresh media URLs through the backend.
   useEffect(() => {
     if (activePlayer !== 3 || !id) {
       if (activePlayer !== 3) { setDirectStream(null); setStreamFailed(false); }
@@ -78,16 +79,17 @@ const Watch = () => {
     }
 
     let cancelled = false;
+    const controller = new AbortController();
     setLoadingStream(true);
     setStreamFailed(false);
     setDirectStream(null);
 
-    const sourceUrl = getPlayerUrl(id, isSeries ? 'serie' : 'movie', isSeries ? season : undefined, isSeries ? episode : undefined, theme, 1);
+    const sourceUrl = getPlayerUrl(id, isSeries ? 'serie' : 'movie', isSeries ? season : undefined, isSeries ? episode : undefined, { color: 'e50914', transparent: false, noEpList: false }, 1);
 
-    getDirectStreamUrl(sourceUrl)
+    getDirectStreamUrl(sourceUrl, controller.signal)
       .then(data => {
         if (cancelled) return;
-        if (!data || !data.streamUrl) throw new Error('securedLink HLS não encontrado');
+        if (!data || !data.streamUrl) throw new Error('Fonte de vídeo não encontrada');
         setDirectStream(data);
       })
       .catch(error => {
@@ -99,8 +101,8 @@ const Watch = () => {
       })
       .finally(() => { if (!cancelled) setLoadingStream(false); });
 
-    return () => { cancelled = true; };
-  }, [activePlayer, id, season, episode, isSeries, theme]);
+    return () => { cancelled = true; controller.abort(); };
+  }, [activePlayer, id, season, episode, isSeries, streamAttempt]);
 
   useEffect(() => {
     if (!isSeries) return;
@@ -139,7 +141,7 @@ const Watch = () => {
       <div className="relative w-full bg-card rounded-lg overflow-hidden shadow-2xl mb-6" style={{ paddingBottom: '56.25%', minHeight: '400px' }}>
         {invalidContent ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><p className="text-sm text-muted-foreground">O link acessado não é válido (ID: {rawId}).</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>
         : activePlayer === 3 && loadingStream ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /><p className="text-xs text-muted-foreground">Carregando Player 3...</p></div>
-        : activePlayer === 3 && streamFailed ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Player 3 não encontrou o HLS</p><p className="text-sm text-muted-foreground">O fluxo de extração não retornou um securedLink válido. Por favor, utilize o Player 1.</p><Button variant="default" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button></div>
+        : activePlayer === 3 && streamFailed ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Player 3 indisponível</p><p className="text-sm text-muted-foreground">Não foi possível carregar uma fonte de vídeo. Tente buscar um link atualizado ou use o Player 1.</p><Button variant="default" size="sm" onClick={() => setStreamAttempt(value => value + 1)}>Tentar novamente</Button><Button variant="secondary" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button></div>
         : activePlayer === 3 && playbackSrc ? <HlsPlayer key={playbackSrc} src={playbackSrc} isHls={directStream?.kind === 'hls'} onFatalError={() => { setDirectStream(null); setStreamFailed(true); }} />
         : activePlayer === 1 && iframeError ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center">
             <p className="text-foreground font-semibold">Este conteúdo está bloqueado.</p>

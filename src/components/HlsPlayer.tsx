@@ -54,6 +54,7 @@ export const HlsPlayer = ({ src, isHls, onFatalError }: HlsPlayerProps) => {
       hls.on(Hls.Events.LEVEL_SWITCHED, (_e, data) => setCurrentLevel(data.level));
 
       let networkRetries = 0;
+      let mediaRetries = 0;
       hls.on(Hls.Events.ERROR, (_e, data) => {
         if (!data.fatal) return;
         console.error('Erro fatal no HLS:', data.type, data.details);
@@ -62,7 +63,7 @@ export const HlsPlayer = ({ src, isHls, onFatalError }: HlsPlayerProps) => {
           hls.startLoad();
           return;
         }
-        if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaRetries++ < 2) {
           hls.recoverMediaError();
           return;
         }
@@ -94,6 +95,7 @@ export const HlsPlayer = ({ src, isHls, onFatalError }: HlsPlayerProps) => {
       <video
         ref={videoRef}
         controls
+        onError={() => { if (!hlsRef.current) onFatalErrorRef.current?.(); }}
         autoPlay
         playsInline
         className="w-full h-full"

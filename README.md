@@ -71,3 +71,31 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Player 3: direct playback
+
+Player 3 ports the supplied `get_stream.py` extraction into the Supabase
+`extract-stream` Edge Function. It tries mgeb → nhdapi → superflix, preserving
+TMDB ID/season/episode, and detects public HLS/MP4 URLs in HTML. Challenge pages
+are skipped. Links are fetched afresh on each attempt; existing signatures are
+preserved, never fabricated. Already-expired playlists are skipped.
+
+The same function proxies playback (`GET ?proxy=…`), including relative HLS
+variants, audio, keys and segments, and forwards byte ranges for MP4. Providers
+and media hosts are restricted in `resolver.js`; a new CDN requires an explicit
+allowlist update. Playback can still fail when providers change markup, block
+server requests, or return unavailable media. Retry resolves a fresh source;
+it does not guarantee the provider has renewed its token.
+
+Deploy the backend as well as the frontend:
+
+```sh
+supabase functions deploy extract-stream --project-ref xfqocptliyukeypvylom
+npm run build
+```
+
+`supabase/config.toml` already configures `verify_jwt = false` for this public
+playback function. Set `VITE_SUPABASE_URL` if deploying to a different project.
+The older `api/player3.js` is not used by this frontend.
+
+Offline resolver checks: `node --test tests/player3.test.js`.
