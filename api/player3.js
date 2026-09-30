@@ -1,4 +1,4 @@
-const PLAYER_ORIGIN = 'https://superflixapi.baby';
+const PLAYER_ORIGIN = 'https://superflixapi.monster';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36';
 
 function cors(res) {
