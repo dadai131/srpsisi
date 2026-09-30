@@ -40,7 +40,7 @@ test('Edge handler resolves fallback and proxies a playlist end to end', async (
     throw new Error('Unexpected URL: ' + url);
   };
   try {
-    const response = await handler(new Request('https://backend.test/functions/v1/extract-stream', { method: 'POST', body: JSON.stringify({ url: 'https://superflixapi.quest/serie/123/2/7' }) }));
+    const response = await handler(new Request('https://backend.test/functions/v1/extract-stream', { method: 'POST', body: JSON.stringify({ id: '123', type: 'serie', season: 2, episode: 7 }) }));
     const data = await response.json();
     assert.equal(data.source, 'nhdapi.com');
     assert.equal(data.kind, 'hls');

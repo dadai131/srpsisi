@@ -84,9 +84,7 @@ const Watch = () => {
     setStreamFailed(false);
     setDirectStream(null);
 
-    const sourceUrl = getPlayerUrl(id, isSeries ? 'serie' : 'movie', isSeries ? season : undefined, isSeries ? episode : undefined, { color: 'e50914', transparent: false, noEpList: false }, 1);
-
-    getDirectStreamUrl(sourceUrl, controller.signal)
+    getDirectStreamUrl(id, isSeries ? 'serie' : 'movie', season, episode, controller.signal)
       .then(data => {
         if (cancelled) return;
         if (!data || !data.streamUrl) throw new Error('Fonte de vídeo não encontrada');
@@ -135,7 +133,7 @@ const Watch = () => {
       <div className="flex items-center gap-2 mb-3">
         <button onClick={() => { setActivePlayer(1); setStreamFailed(false); }} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 1 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 1</button>
         <button onClick={() => { setActivePlayer(2); setP2Source('mgeb'); setStreamFailed(false); }} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 2 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 2</button>
-        <button onClick={() => { setActivePlayer(3); setStreamFailed(false); }} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 3 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 3 • HLS (Sem Anúncios)</button>
+        <button onClick={() => { setActivePlayer(3); setStreamFailed(false); }} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 3 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 3 • Loki Player</button>
       </div>
 
       <div className="relative w-full bg-card rounded-lg overflow-hidden shadow-2xl mb-6" style={{ paddingBottom: '56.25%', minHeight: '400px' }}>

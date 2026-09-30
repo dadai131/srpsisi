@@ -105,9 +105,16 @@ serve(async req => {
     if (target && req.method === 'GET') return await proxy(target, req);
     if (req.method !== 'POST') return json({ error: 'Método não permitido' }, 405);
     const body = await req.json().catch(() => null);
-    if (typeof body?.url !== 'string') return json({ error: 'URL inválida' }, 400);
-    try { candidates(body.url); } catch { return json({ error: 'Conteúdo inválido' }, 400); }
-    const result = await extract(body.url);
+    let sourceUrl = body?.url;
+    if (body?.id !== undefined) {
+      if (!/^\d{1,12}$/.test(String(body.id)) || !['movie', 'serie'].includes(body.type)) return json({ error: 'ID inválido' }, 400);
+      const season = body.season ?? 1, episode = body.episode ?? 1;
+      if (body.type === 'serie' && (![season, episode].every(value => Number.isInteger(value) && value > 0 && value < 10000))) return json({ error: 'Episódio inválido' }, 400);
+      sourceUrl = body.type === 'movie' ? `https://superflixapi.quest/filme/${body.id}` : `https://superflixapi.quest/serie/${body.id}/${season}/${episode}`;
+    }
+    if (typeof sourceUrl !== 'string') return json({ error: 'URL inválida' }, 400);
+    try { candidates(sourceUrl); } catch { return json({ error: 'Conteúdo inválido' }, 400); }
+    const result = await extract(sourceUrl);
     return json(result || { streamUrl: null, error: 'Nenhuma fonte disponível para este conteúdo.' });
   } catch {
     return json({ error: 'Não foi possível consultar a fonte.' }, 502);
