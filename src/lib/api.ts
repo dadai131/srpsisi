@@ -102,11 +102,12 @@ export function playbackProxyUrl(streamUrl: string, referer?: string): string {
   if (referer) params.set('referer', referer);
   return `${base}?${params.toString()}`;
 }
-export async function getDirectStreamUrl(id: string, type: 'movie' | 'serie', season: number, episode: number, signal?: AbortSignal): Promise<DirectStream | null> {
+export interface XtreamCredentials { host: string; username: string; password: string; }
+export async function getDirectStreamUrl(id: string, type: 'movie' | 'serie', season: number, episode: number, credentials: XtreamCredentials, signal?: AbortSignal): Promise<DirectStream | null> {
   // Player 3 is Xtream-only. The backend maps the site's TMDB id to the Xtream stream/episode id.
   const response = await fetch(`${BACKEND_URL}/functions/v1/xtream-test`, {
     method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tmdbId: id, type, season, episode }),
+    body: JSON.stringify({ tmdbId: id, type, season, episode, credentials }),
   });
   if (!response.ok) throw new Error(`Falha ao buscar vídeo no Xtream (${response.status})`);
   const data = await response.json();
