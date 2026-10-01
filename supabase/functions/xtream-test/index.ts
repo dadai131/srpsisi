@@ -5,10 +5,10 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, range',
   'Access-Control-Expose-Headers': 'content-length, content-range, accept-ranges',
 };
-const HOST = (Deno.env.get('XTREAM_HOST') || '').replace(/\/+$/, '');
-const USER = Deno.env.get('XTREAM_USER') || '';
-const PASS = Deno.env.get('XTREAM_PASS') || '';
-const configured = () => Boolean(HOST && USER && PASS);
+const ENV_HOST = (Deno.env.get('XTREAM_HOST') || '').replace(/\/+$/, '');
+const ENV_USER = Deno.env.get('XTREAM_USER') || '';
+const ENV_PASS = Deno.env.get('XTREAM_PASS') || '';
+let HOST = ENV_HOST, USER = ENV_USER, PASS = ENV_PASS;
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { ...cors, 'content-type': 'application/json', 'cache-control': 'no-store' },
@@ -93,7 +93,6 @@ async function proxyMedia(req: Request, kind: 'movie' | 'series', vod: string, e
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
-    if (!configured()) return json({ error: 'Player 3 Xtream não configurado: defina XTREAM_HOST, XTREAM_USER e XTREAM_PASS no backend.' }, 503);
     const url = new URL(req.url);
     if (req.method === 'GET') {
       const vod = url.searchParams.get('vod') || '';
@@ -104,6 +103,14 @@ Deno.serve(async req => {
     if (req.method !== 'POST') return json({ error: 'Método não permitido' }, 405);
 
     const body = await req.json().catch(() => null);
+    const credentials = body?.credentials || {};
+    if (credentials.host || credentials.username || credentials.password) {
+      let parsed: URL;
+      try { parsed = new URL(String(credentials.host || '')); } catch { return json({ error: 'Host Xtream inválido' }, 400); }
+      if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash) return json({ error: 'Host Xtream inválido' }, 400);
+      HOST = parsed.origin.replace(/\/+$/, ''); USER = String(credentials.username || ''); PASS = String(credentials.password || '');
+    }
+    if (!HOST || !USER || !PASS) return json({ error: 'Informe Host, usuário e senha do Xtream' }, 400);
     const tmdbId = String(Number(body?.tmdbId || 0));
     const type = body?.type === 'serie' ? 'serie' : 'movie';
     const season = Number(body?.season || 1), episode = Number(body?.episode || 1);
