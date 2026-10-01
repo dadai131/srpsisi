@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import WallpaperHome from "./pages/WallpaperHome";
 import LiveRedirect from "./pages/LiveRedirect";
 import AgentLogin from "./pages/AgentLogin";
+import XtreamTest from "./pages/XtreamTest";
 import OAuthConsent from "./pages/OAuthConsent";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
         <Routes>
           <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
           <Route path="/agent-login" element={<AgentLogin />} />
+          <Route path="/teste-xtream" element={<XtreamTest />} />
           {isLovableDomain ? (
             <Route path="*" element={<WallpaperHome />} />
           ) : (<>
