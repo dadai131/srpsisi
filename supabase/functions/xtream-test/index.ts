@@ -110,10 +110,10 @@ Deno.serve(async req => {
     const resolved = type === 'movie'
       ? await resolveMovie(tmdbId)
       : await resolveEpisode(tmdbId, season, episode);
-    if (!resolved) return json({ error: 'Conteúdo não encontrado no catálogo Xtream', streamUrl: null, hasKey: !!Deno.env.get('TMDB_API_KEY') }, 404);
+    if (!resolved) return json({ error: 'Conteúdo não encontrado no catálogo Xtream', streamUrl: null }, 404);
 
     const kind = type === 'movie' ? 'movie' : 'series';
-    const endpoint = new URL(req.url);
+    const endpoint = new URL(`${(Deno.env.get('SUPABASE_URL') || 'https://xfqocptliyukeypvylom.supabase.co').replace(/\/+$/, '')}/functions/v1/xtream-test`);
     endpoint.search = '';
     endpoint.searchParams.set('vod', resolved.id);
     endpoint.searchParams.set('ext', resolved.ext);
