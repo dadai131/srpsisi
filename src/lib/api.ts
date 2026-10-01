@@ -94,13 +94,21 @@ export function getPlayer2Url(id: string, type: 'movie' | 'serie', season?: numb
 }
 
 export interface DirectStream { streamUrl: string; referer?: string; kind?: 'hls' | 'dash' | 'mp4' | 'unknown'; }
-export function playbackProxyUrl(streamUrl: string, referer?: string): string { const base = `${BACKEND_URL}/functions/v1/extract-stream`; const params = new URLSearchParams({ proxy: streamUrl }); if (referer) params.set('referer', referer); return `${base}?${params.toString()}`; }
+export function playbackProxyUrl(streamUrl: string, referer?: string): string {
+  // Player 3 Xtream already returns a same-origin backend stream with Range support.
+  if (streamUrl.startsWith(`${BACKEND_URL}/functions/v1/xtream-test`)) return streamUrl;
+  const base = `${BACKEND_URL}/functions/v1/extract-stream`;
+  const params = new URLSearchParams({ proxy: streamUrl });
+  if (referer) params.set('referer', referer);
+  return `${base}?${params.toString()}`;
+}
 export async function getDirectStreamUrl(id: string, type: 'movie' | 'serie', season: number, episode: number, signal?: AbortSignal): Promise<DirectStream | null> {
-  const response = await fetch(`${BACKEND_URL}/functions/v1/extract-stream`, {
+  // Player 3 is Xtream-only. The backend maps the site's TMDB id to the Xtream stream/episode id.
+  const response = await fetch(`${BACKEND_URL}/functions/v1/xtream-test`, {
     method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, type, season, episode }),
+    body: JSON.stringify({ tmdbId: id, type, season, episode }),
   });
-  if (!response.ok) throw new Error(`Falha ao buscar vídeo (${response.status})`);
+  if (!response.ok) throw new Error(`Falha ao buscar vídeo no Xtream (${response.status})`);
   const data = await response.json();
   return data?.streamUrl ? data : null;
 }
