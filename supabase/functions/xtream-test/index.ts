@@ -5,9 +5,10 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, range',
   'Access-Control-Expose-Headers': 'content-length, content-range, accept-ranges',
 };
-const HOST = (Deno.env.get('XTREAM_HOST') || 'https://xlionone.ultrapw.fun').replace(/\/+$/, '');
-const USER = Deno.env.get('XTREAM_USER') || '277273986';
-const PASS = Deno.env.get('XTREAM_PASS') || '559524926';
+const HOST = (Deno.env.get('XTREAM_HOST') || '').replace(/\/+$/, '');
+const USER = Deno.env.get('XTREAM_USER') || '';
+const PASS = Deno.env.get('XTREAM_PASS') || '';
+const CONFIGURED = !!(HOST && USER && PASS);
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { ...cors, 'content-type': 'application/json', 'cache-control': 'no-store' },
@@ -91,6 +92,7 @@ async function proxyMedia(req: Request, kind: 'movie' | 'series', vod: string, e
 
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  if (!CONFIGURED) return json({ error: 'Xtream não configurado: defina XTREAM_HOST, XTREAM_USER e XTREAM_PASS nos secrets', streamUrl: null }, 503);
   try {
     const url = new URL(req.url);
     if (req.method === 'GET') {
