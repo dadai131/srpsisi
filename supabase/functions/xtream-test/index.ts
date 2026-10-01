@@ -5,16 +5,28 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, range',
   'Access-Control-Expose-Headers': 'content-length, content-range, accept-ranges',
 };
-const ENV_HOST = (Deno.env.get('XTREAM_HOST') || '').replace(/\/+$/, '');
-const ENV_USER = Deno.env.get('XTREAM_USER') || '';
-const ENV_PASS = Deno.env.get('XTREAM_PASS') || '';
-let HOST = ENV_HOST, USER = ENV_USER, PASS = ENV_PASS;
+type XtreamAuth = { host: string; user: string; pass: string };
+const ENV_AUTH: XtreamAuth = {
+  host: (Deno.env.get('XTREAM_HOST') || '').replace(/\/+$/, ''),
+  user: Deno.env.get('XTREAM_USER') || '',
+  pass: Deno.env.get('XTREAM_PASS') || '',
+};
+const enc = (value: string) => btoa(unescape(encodeURIComponent(value))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const dec = (value: string) => decodeURIComponent(escape(atob(value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4))));
+const packAuth = (auth: XtreamAuth) => enc(JSON.stringify(auth));
+const unpackAuth = (value: string): XtreamAuth | null => {
+  try {
+    const auth = JSON.parse(dec(value));
+    if (!auth?.host || !auth?.user || !auth?.pass) return null;
+    return { host: String(auth.host).replace(/\/+$/, ''), user: String(auth.user), pass: String(auth.pass) };
+  } catch { return null; }
+};
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { ...cors, 'content-type': 'application/json', 'cache-control': 'no-store' },
 });
-const api = (action: string, extra = '') =>
-  `${HOST}/player_api.php?username=${encodeURIComponent(USER)}&password=${encodeURIComponent(PASS)}&action=${action}${extra}`;
+const api = (auth: XtreamAuth, action: string, extra = '') =>
+  `${auth.host}/player_api.php?username=${encodeURIComponent(auth.user)}&password=${encodeURIComponent(auth.pass)}&action=${action}${extra}`;
 
 function tmdbOf(item: any): string {
   const values = [item?.tmdb, item?.tmdb_id, item?.tmdbId, item?.info?.tmdb, item?.info?.tmdb_id];
@@ -56,29 +68,29 @@ function matchItem(list: any[], meta: any, iconField: string) {
   return list.find(x => { const p = parse(x); return meta.titles.includes(p.t) && (!meta.year || !p.y || p.y === meta.year); })
     || list.find(x => meta.titles.includes(parse(x).t)) || null;
 }
-async function resolveMovie(tmdbId: string) {
-  const [list, meta] = await Promise.all([fetchJson(api('get_vod_streams')), tmdbMeta('movie', tmdbId)]);
+async function resolveMovie(auth: XtreamAuth, tmdbId: string) {
+  const [list, meta] = await Promise.all([fetchJson(api(auth, 'get_vod_streams')), tmdbMeta('movie', tmdbId)]);
   if (!Array.isArray(list)) return null;
   const item = list.find((x: any) => tmdbOf(x) === tmdbId) || matchItem(list, meta, 'stream_icon');
   if (!item?.stream_id) return null;
   return { id: String(item.stream_id), ext: String(item.container_extension || 'mp4').replace(/[^a-z0-9]/gi, '') || 'mp4' };
 }
-async function resolveEpisode(tmdbId: string, season: number, episode: number) {
-  const [list, meta] = await Promise.all([fetchJson(api('get_series')), tmdbMeta('tv', tmdbId)]);
+async function resolveEpisode(auth: XtreamAuth, tmdbId: string, season: number, episode: number) {
+  const [list, meta] = await Promise.all([fetchJson(api(auth, 'get_series')), tmdbMeta('tv', tmdbId)]);
   if (!Array.isArray(list)) return null;
   const series = list.find((x: any) => tmdbOf(x) === tmdbId) || matchItem(list, meta, 'cover');
   if (!series?.series_id) return null;
-  const info = await fetchJson(api('get_series_info', `&series_id=${encodeURIComponent(series.series_id)}`));
+  const info = await fetchJson(api(auth, 'get_series_info', `&series_id=${encodeURIComponent(series.series_id)}`));
   const episodes = info?.episodes?.[String(season)] || info?.episodes?.[season] || [];
   const ep = episodes.find((x: any) => Number(x?.episode_num ?? x?.episode) === episode) || episodes[episode - 1];
   if (!ep?.id) return null;
   const ext = String(ep?.container_extension || ep?.info?.container_extension || 'mp4').replace(/[^a-z0-9]/gi, '') || 'mp4';
   return { id: String(ep.id), ext };
 }
-async function proxyMedia(req: Request, kind: 'movie' | 'series', vod: string, ext: string) {
+async function proxyMedia(req: Request, auth: XtreamAuth, kind: 'movie' | 'series', vod: string, ext: string) {
   if (!/^\d{1,12}$/.test(vod) || !/^[a-z0-9]{2,5}$/i.test(ext)) return json({ error: 'ID de mídia inválido' }, 400);
   const range = req.headers.get('range');
-  const upstream = await fetch(`${HOST}/${kind}/${encodeURIComponent(USER)}/${encodeURIComponent(PASS)}/${vod}.${ext}`, {
+  const upstream = await fetch(`${auth.host}/${kind}/${encodeURIComponent(auth.user)}/${encodeURIComponent(auth.pass)}/${vod}.${ext}`, {
     redirect: 'follow', signal: AbortSignal.timeout(15000),
     headers: { 'User-Agent': 'Mozilla/5.0', ...(range ? { Range: range } : {}) },
   });
@@ -98,27 +110,30 @@ Deno.serve(async req => {
       const vod = url.searchParams.get('vod') || '';
       const ext = url.searchParams.get('ext') || 'mp4';
       const kind = url.searchParams.get('kind') === 'series' ? 'series' : 'movie';
-      return await proxyMedia(req, kind, vod, ext);
+      const auth = unpackAuth(url.searchParams.get('session') || '') || ENV_AUTH;
+      if (!auth.host || !auth.user || !auth.pass) return json({ error: 'Sessão Xtream ausente ou expirada' }, 401);
+      return await proxyMedia(req, auth, kind, vod, ext);
     }
     if (req.method !== 'POST') return json({ error: 'Método não permitido' }, 405);
 
     const body = await req.json().catch(() => null);
     const credentials = body?.credentials || {};
+    let auth: XtreamAuth = { ...ENV_AUTH };
     if (credentials.host || credentials.username || credentials.password) {
       let parsed: URL;
       try { parsed = new URL(String(credentials.host || '')); } catch { return json({ error: 'Host Xtream inválido' }, 400); }
       if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash) return json({ error: 'Host Xtream inválido' }, 400);
-      HOST = parsed.origin.replace(/\/+$/, ''); USER = String(credentials.username || ''); PASS = String(credentials.password || '');
+      auth = { host: parsed.origin.replace(/\/+$/, ''), user: String(credentials.username || ''), pass: String(credentials.password || '') };
     }
-    if (!HOST || !USER || !PASS) return json({ error: 'Informe Host, usuário e senha do Xtream' }, 400);
+    if (!auth.host || !auth.user || !auth.pass) return json({ error: 'Informe Host, usuário e senha do Xtream' }, 400);
     const tmdbId = String(Number(body?.tmdbId || 0));
     const type = body?.type === 'serie' ? 'serie' : 'movie';
     const season = Number(body?.season || 1), episode = Number(body?.episode || 1);
     if (!/^\d{1,12}$/.test(tmdbId)) return json({ error: 'TMDB ID inválido' }, 400);
 
     const resolved = type === 'movie'
-      ? await resolveMovie(tmdbId)
-      : await resolveEpisode(tmdbId, season, episode);
+      ? await resolveMovie(auth, tmdbId)
+      : await resolveEpisode(auth, tmdbId, season, episode);
     if (!resolved) return json({ error: 'Conteúdo não encontrado no catálogo Xtream', streamUrl: null }, 404);
 
     const kind = type === 'movie' ? 'movie' : 'series';
@@ -127,6 +142,7 @@ Deno.serve(async req => {
     endpoint.searchParams.set('vod', resolved.id);
     endpoint.searchParams.set('ext', resolved.ext);
     endpoint.searchParams.set('kind', kind);
+    endpoint.searchParams.set('session', packAuth(auth));
     return json({ streamUrl: endpoint.toString(), kind: resolved.ext === 'm3u8' ? 'hls' : 'mp4', source: 'xtream', streamId: resolved.id });
   } catch (e) {
     return json({ error: `Falha no Xtream: ${(e as Error).message}` }, 502);
