@@ -25,17 +25,47 @@ async function fetchJson(url: string) {
   if (!res.ok) throw new Error(`Xtream API ${res.status}`);
   return await res.json();
 }
+// Catalog items carry no reliable tmdb id, so fall back to TMDB poster filename + title/year.
+const norm = (s: string) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const posterKey = (s: string) => (String(s || '').match(/\/([A-Za-z0-9]+)\.(?:jpg|png|webp)/)?.[1] || '');
+async function tmdbMeta(kind: 'movie' | 'tv', id: string) {
+  const key = Deno.env.get('TMDB_API_KEY');
+  if (!key) return null;
+  const get = async (lang: string) => {
+    const r = await fetch(`https://api.themoviedb.org/3/${kind}/${id}?api_key=${key}&language=${lang}`, { signal: AbortSignal.timeout(8000) });
+    return r.ok ? await r.json() : null;
+  };
+  const [pt, en] = await Promise.all([get('pt-BR'), get('en-US')]);
+  if (!pt && !en) return null;
+  const d = pt || en;
+  const date = d.release_date || d.first_air_date || '';
+  const titles = [pt?.title, pt?.name, en?.title, en?.name, d.original_title, d.original_name].filter(Boolean).map(norm);
+  const posters = [pt?.poster_path, en?.poster_path].filter(Boolean).map(posterKey);
+  return { year: date.slice(0, 4), titles: [...new Set(titles)], posters: posters.filter(Boolean) };
+}
+function matchItem(list: any[], meta: any, iconField: string) {
+  if (!meta) return null;
+  const byPoster = list.find(x => { const k = posterKey(x?.[iconField]); return k && meta.posters.includes(k); });
+  if (byPoster) return byPoster;
+  const parse = (x: any) => {
+    const raw = String(x?.name || x?.title || '');
+    const m = raw.match(/^(.*?)\s*[-(]\s*(\d{4})\)?\s*$/);
+    return { t: norm(m ? m[1] : raw), y: m?.[2] || String(x?.year || x?.releaseDate || '').slice(0, 4) };
+  };
+  return list.find(x => { const p = parse(x); return meta.titles.includes(p.t) && (!meta.year || !p.y || p.y === meta.year); })
+    || list.find(x => meta.titles.includes(parse(x).t)) || null;
+}
 async function resolveMovie(tmdbId: string) {
-  const list = await fetchJson(api('get_vod_streams'));
+  const [list, meta] = await Promise.all([fetchJson(api('get_vod_streams')), tmdbMeta('movie', tmdbId)]);
   if (!Array.isArray(list)) return null;
-  const item = list.find((x: any) => tmdbOf(x) === tmdbId);
+  const item = list.find((x: any) => tmdbOf(x) === tmdbId) || matchItem(list, meta, 'stream_icon');
   if (!item?.stream_id) return null;
   return { id: String(item.stream_id), ext: String(item.container_extension || 'mp4').replace(/[^a-z0-9]/gi, '') || 'mp4' };
 }
 async function resolveEpisode(tmdbId: string, season: number, episode: number) {
-  const list = await fetchJson(api('get_series'));
+  const [list, meta] = await Promise.all([fetchJson(api('get_series')), tmdbMeta('tv', tmdbId)]);
   if (!Array.isArray(list)) return null;
-  const series = list.find((x: any) => tmdbOf(x) === tmdbId);
+  const series = list.find((x: any) => tmdbOf(x) === tmdbId) || matchItem(list, meta, 'cover');
   if (!series?.series_id) return null;
   const info = await fetchJson(api('get_series_info', `&series_id=${encodeURIComponent(series.series_id)}`));
   const episodes = info?.episodes?.[String(season)] || info?.episodes?.[season] || [];
@@ -83,7 +113,7 @@ Deno.serve(async req => {
     if (!resolved) return json({ error: 'Conteúdo não encontrado no catálogo Xtream', streamUrl: null }, 404);
 
     const kind = type === 'movie' ? 'movie' : 'series';
-    const endpoint = new URL(req.url);
+    const endpoint = new URL(`${(Deno.env.get('SUPABASE_URL') || 'https://xfqocptliyukeypvylom.supabase.co').replace(/\/+$/, '')}/functions/v1/xtream-test`);
     endpoint.search = '';
     endpoint.searchParams.set('vod', resolved.id);
     endpoint.searchParams.set('ext', resolved.ext);
