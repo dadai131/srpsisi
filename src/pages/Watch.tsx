@@ -26,6 +26,7 @@ const Watch = () => {
   const [directStream, setDirectStream] = useState<DirectStream | null>(null);
   const [loadingStream, setLoadingStream] = useState(false);
   const [streamFailed, setStreamFailed] = useState(false);
+  const [streamError, setStreamError] = useState('');
   const [streamAttempt, setStreamAttempt] = useState(0);
   const [xtreamHost, setXtreamHost] = useState(() => sessionStorage.getItem('xtream_host') || '');
   const [xtreamUser, setXtreamUser] = useState(() => sessionStorage.getItem('xtream_user') || '');
@@ -86,6 +87,7 @@ const Watch = () => {
     const controller = new AbortController();
     setLoadingStream(true);
     setStreamFailed(false);
+    setStreamError('');
     setDirectStream(null);
 
     getDirectStreamUrl(id, isSeries ? 'serie' : 'movie', season, episode, { host: xtreamHost, username: xtreamUser, password: xtreamPass }, controller.signal)
@@ -98,6 +100,7 @@ const Watch = () => {
         if (!cancelled) {
           console.error('Player 3 Error:', error);
           setDirectStream(null);
+          setStreamError(error instanceof Error ? error.message : 'Falha desconhecida no Player 3');
           setStreamFailed(true);
         }
       })
@@ -144,7 +147,7 @@ const Watch = () => {
         {invalidContent ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><p className="text-sm text-muted-foreground">O link acessado não é válido (ID: {rawId}).</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>
         : activePlayer === 3 && !xtreamReady ? <form className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6" onSubmit={e => { e.preventDefault(); const host = xtreamHost.trim().replace(/\/+$/, ''); const user = xtreamUser.trim(); if (!/^https?:\/\//i.test(host) || !user || !xtreamPass) return; sessionStorage.setItem('xtream_host', host); sessionStorage.setItem('xtream_user', user); sessionStorage.setItem('xtream_pass', xtreamPass); setXtreamHost(host); setXtreamUser(user); setXtreamReady(true); setStreamAttempt(v => v + 1); }}><p className="text-foreground font-semibold">Conectar Player 3 ao Xtream</p><p className="text-xs text-muted-foreground text-center">Dados usados somente nesta sessão do navegador.</p><input aria-label="Host Xtream" placeholder="http://servidor.com" value={xtreamHost} onChange={e => setXtreamHost(e.target.value)} className="w-full max-w-sm rounded-md border border-border bg-secondary px-3 py-2 text-sm text-foreground" required /><input aria-label="Usuário Xtream" placeholder="Usuário" value={xtreamUser} onChange={e => setXtreamUser(e.target.value)} className="w-full max-w-sm rounded-md border border-border bg-secondary px-3 py-2 text-sm text-foreground" required /><input aria-label="Senha Xtream" type="password" placeholder="Senha" value={xtreamPass} onChange={e => setXtreamPass(e.target.value)} className="w-full max-w-sm rounded-md border border-border bg-secondary px-3 py-2 text-sm text-foreground" required /><Button type="submit" variant="default" size="sm">Conectar e reproduzir</Button></form>
         : activePlayer === 3 && loadingStream ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /><p className="text-xs text-muted-foreground">Carregando Player 3...</p></div>
-        : activePlayer === 3 && streamFailed ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Player 3 indisponível</p><p className="text-sm text-muted-foreground">Não foi possível carregar uma fonte de vídeo. Tente buscar um link atualizado ou use o Player 1.</p><Button variant="default" size="sm" onClick={() => setStreamAttempt(value => value + 1)}>Tentar novamente</Button><Button variant="secondary" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button></div>
+        : activePlayer === 3 && streamFailed ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Player 3 indisponível</p><p className="text-sm text-muted-foreground">{streamError || 'Não foi possível carregar uma fonte de vídeo. Verifique o login Xtream e tente novamente.'}</p><Button variant="default" size="sm" onClick={() => setStreamAttempt(value => value + 1)}>Tentar novamente</Button><Button variant="secondary" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button></div>
         : activePlayer === 3 && playbackSrc ? <HlsPlayer key={playbackSrc} src={playbackSrc} isHls={directStream?.kind === 'hls'} onFatalError={() => { setDirectStream(null); setStreamFailed(true); }} />
         : activePlayer === 1 && iframeError ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center">
             <p className="text-foreground font-semibold">Este conteúdo está bloqueado.</p>
