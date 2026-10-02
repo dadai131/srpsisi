@@ -33,10 +33,22 @@ function tmdbOf(item: any): string {
   for (const value of values) if (/^\d{1,12}$/.test(String(value ?? ''))) return String(Number(value));
   return '';
 }
+// Cache + in-flight dedupe so the provider's rate limit sees few player_api.php calls.
+const cache = new Map<string, { exp: number; val: Promise<any> }>();
+function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
+  const hit = cache.get(key);
+  if (hit && hit.exp > Date.now()) return hit.val;
+  const val = fn().catch(e => { cache.delete(key); throw e; });
+  cache.set(key, { exp: Date.now() + ttlMs, val });
+  return val;
+}
 async function fetchJson(url: string) {
-  const res = await fetch(url, { signal: AbortSignal.timeout(12000), headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`Xtream API ${res.status}`);
-  return await res.json();
+  const ttl = /get_(vod_streams|series)(&|$)/.test(url) ? 30 * 60_000 : 60 * 60_000;
+  return cached(url, ttl, async () => {
+    const res = await fetch(url, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`Xtream API ${res.status}`);
+    return await res.json();
+  });
 }
 // Catalog items carry no reliable tmdb id, so fall back to TMDB poster filename + title/year.
 const norm = (s: string) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -110,30 +122,24 @@ Deno.serve(async req => {
       const vod = url.searchParams.get('vod') || '';
       const ext = url.searchParams.get('ext') || 'mp4';
       const kind = url.searchParams.get('kind') === 'series' ? 'series' : 'movie';
-      const auth = unpackAuth(url.searchParams.get('session') || '') || ENV_AUTH;
-      if (!auth.host || !auth.user || !auth.pass) return json({ error: 'Sessão Xtream ausente ou expirada' }, 401);
+      // Bridge only: always the backend secrets, never client-supplied servers.
+      const auth = ENV_AUTH;
+      if (!auth.host || !auth.user || !auth.pass) return json({ error: 'Xtream não configurado' }, 503);
       return await proxyMedia(req, auth, kind, vod, ext);
     }
     if (req.method !== 'POST') return json({ error: 'Método não permitido' }, 405);
 
     const body = await req.json().catch(() => null);
-    const credentials = body?.credentials || {};
-    let auth: XtreamAuth = { ...ENV_AUTH };
-    if (credentials.host || credentials.username || credentials.password) {
-      let parsed: URL;
-      try { parsed = new URL(String(credentials.host || '')); } catch { return json({ error: 'Host Xtream inválido' }, 400); }
-      if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash) return json({ error: 'Host Xtream inválido' }, 400);
-      auth = { host: parsed.origin.replace(/\/+$/, ''), user: String(credentials.username || ''), pass: String(credentials.password || '') };
-    }
-    if (!auth.host || !auth.user || !auth.pass) return json({ error: 'Informe Host, usuário e senha do Xtream' }, 400);
+    const auth: XtreamAuth = ENV_AUTH;
+    if (!auth.host || !auth.user || !auth.pass) return json({ error: 'Xtream não configurado' }, 503);
     const tmdbId = String(Number(body?.tmdbId || 0));
     const type = body?.type === 'serie' ? 'serie' : 'movie';
     const season = Number(body?.season || 1), episode = Number(body?.episode || 1);
-    if (!/^\d{1,12}$/.test(tmdbId)) return json({ error: 'TMDB ID inválido' }, 400);
+    if (!/^\d{1,12}$/.test(tmdbId) || !Number.isInteger(season) || !Number.isInteger(episode) || season < 0 || season > 200 || episode < 1 || episode > 5000) return json({ error: 'Parâmetros inválidos' }, 400);
 
-    const resolved = type === 'movie'
-      ? await resolveMovie(auth, tmdbId)
-      : await resolveEpisode(auth, tmdbId, season, episode);
+    const resolved = await cached(`r:${type}:${tmdbId}:${season}:${episode}`, 6 * 3600_000, () => type === 'movie'
+      ? resolveMovie(auth, tmdbId)
+      : resolveEpisode(auth, tmdbId, season, episode));
     if (!resolved) return json({ error: 'Conteúdo não encontrado no catálogo Xtream', streamUrl: null }, 404);
 
     const kind = type === 'movie' ? 'movie' : 'series';
