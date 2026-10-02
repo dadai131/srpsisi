@@ -28,10 +28,6 @@ const Watch = () => {
   const [streamFailed, setStreamFailed] = useState(false);
   const [streamError, setStreamError] = useState('');
   const [streamAttempt, setStreamAttempt] = useState(0);
-  const [xtreamHost, setXtreamHost] = useState(() => sessionStorage.getItem('xtream_host') || '');
-  const [xtreamUser, setXtreamUser] = useState(() => sessionStorage.getItem('xtream_user') || '');
-  const [xtreamPass, setXtreamPass] = useState(() => sessionStorage.getItem('xtream_pass') || '');
-  const [xtreamReady, setXtreamReady] = useState(() => Boolean(sessionStorage.getItem('xtream_host') && sessionStorage.getItem('xtream_user') && sessionStorage.getItem('xtream_pass')));
   const [theme, setTheme] = useState<PlayerTheme>({ color: 'e50914', transparent: false, noEpList: false });
   const isSeries = type === 'serie' || type === 'anime' || type === 'dorama';
 
@@ -78,7 +74,7 @@ const Watch = () => {
 
   // Player 3: resolve fresh media URLs through the backend.
   useEffect(() => {
-    if (activePlayer !== 3 || !id || !xtreamReady) {
+    if (activePlayer !== 3 || !id) {
       if (activePlayer !== 3) { setDirectStream(null); setStreamFailed(false); }
       return;
     }
@@ -90,7 +86,7 @@ const Watch = () => {
     setStreamError('');
     setDirectStream(null);
 
-    getDirectStreamUrl(id, isSeries ? 'serie' : 'movie', season, episode, { host: xtreamHost, username: xtreamUser, password: xtreamPass }, controller.signal)
+    getDirectStreamUrl(id, isSeries ? 'serie' : 'movie', season, episode, controller.signal)
       .then(data => {
         if (cancelled) return;
         if (!data || !data.streamUrl) throw new Error('Fonte de vídeo não encontrada');
@@ -107,7 +103,7 @@ const Watch = () => {
       .finally(() => { if (!cancelled) setLoadingStream(false); });
 
     return () => { cancelled = true; controller.abort(); };
-  }, [activePlayer, id, season, episode, isSeries, streamAttempt, xtreamReady, xtreamHost, xtreamUser, xtreamPass]);
+  }, [activePlayer, id, season, episode, isSeries, streamAttempt]);
 
   useEffect(() => {
     if (!isSeries) return;
@@ -145,7 +141,6 @@ const Watch = () => {
 
       <div className="relative w-full bg-card rounded-lg overflow-hidden shadow-2xl mb-6" style={{ paddingBottom: '56.25%', minHeight: '400px' }}>
         {invalidContent ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><p className="text-sm text-muted-foreground">O link acessado não é válido (ID: {rawId}).</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>
-        : activePlayer === 3 && !xtreamReady ? <form className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6" onSubmit={e => { e.preventDefault(); const host = xtreamHost.trim().replace(/\/+$/, ''); const user = xtreamUser.trim(); if (!/^https?:\/\//i.test(host) || !user || !xtreamPass) return; sessionStorage.setItem('xtream_host', host); sessionStorage.setItem('xtream_user', user); sessionStorage.setItem('xtream_pass', xtreamPass); setXtreamHost(host); setXtreamUser(user); setXtreamReady(true); setStreamAttempt(v => v + 1); }}><p className="text-foreground font-semibold">Conectar Player 3 ao Xtream</p><p className="text-xs text-muted-foreground text-center">Dados usados somente nesta sessão do navegador.</p><input aria-label="Host Xtream" placeholder="http://servidor.com" value={xtreamHost} onChange={e => setXtreamHost(e.target.value)} className="w-full max-w-sm rounded-md border border-border bg-secondary px-3 py-2 text-sm text-foreground" required /><input aria-label="Usuário Xtream" placeholder="Usuário" value={xtreamUser} onChange={e => setXtreamUser(e.target.value)} className="w-full max-w-sm rounded-md border border-border bg-secondary px-3 py-2 text-sm text-foreground" required /><input aria-label="Senha Xtream" type="password" placeholder="Senha" value={xtreamPass} onChange={e => setXtreamPass(e.target.value)} className="w-full max-w-sm rounded-md border border-border bg-secondary px-3 py-2 text-sm text-foreground" required /><Button type="submit" variant="default" size="sm">Conectar e reproduzir</Button></form>
         : activePlayer === 3 && loadingStream ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /><p className="text-xs text-muted-foreground">Carregando Player 3...</p></div>
         : activePlayer === 3 && streamFailed ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Player 3 indisponível</p><p className="text-sm text-muted-foreground">{streamError || 'Não foi possível carregar uma fonte de vídeo. Verifique o login Xtream e tente novamente.'}</p><Button variant="default" size="sm" onClick={() => setStreamAttempt(value => value + 1)}>Tentar novamente</Button><Button variant="secondary" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button></div>
         : activePlayer === 3 && playbackSrc ? <HlsPlayer key={playbackSrc} src={playbackSrc} isHls={directStream?.kind === 'hls'} onFatalError={() => { setDirectStream(null); setStreamFailed(true); }} />
