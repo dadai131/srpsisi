@@ -3,9 +3,6 @@ import { ContentItem, ContentType, CalendarItem } from '@/types/content';
 const FALLBACK_BACKEND_URL = 'https://xfqocptliyukeypvylom.supabase.co';
 const RAW_BACKEND_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const BACKEND_URL = RAW_BACKEND_URL && /^https?:\/\//.test(RAW_BACKEND_URL) ? RAW_BACKEND_URL.replace(/\/+$/, '') : FALLBACK_BACKEND_URL;
-const RAW_PLAYER3_BACKEND_URL = import.meta.env.VITE_PLAYER3_BACKEND_URL as string | undefined;
-const PLAYER3_BACKEND_URL = RAW_PLAYER3_BACKEND_URL && /^https?:\/\//.test(RAW_PLAYER3_BACKEND_URL) ? RAW_PLAYER3_BACKEND_URL.replace(/\/+$/, '') : '';
-const PLAYER3_API = `${PLAYER3_BACKEND_URL}/api/player3`;
 const TMDB_PROXY = `${BACKEND_URL}/functions/v1/tmdb`;
 
 export function tmdbUrl(path: string, query: string = ''): string {
@@ -98,8 +95,7 @@ export function getPlayer2Url(id: string, type: 'movie' | 'serie', season?: numb
 
 export interface DirectStream { streamUrl: string; referer?: string; kind?: 'hls' | 'dash' | 'mp4' | 'unknown'; }
 export function playbackProxyUrl(streamUrl: string, referer?: string): string {
-  // Player 3 Xtream returns a same-origin backend stream with Range support.
-  if (streamUrl.startsWith('/api/player3') || streamUrl.startsWith(`${PLAYER3_BACKEND_URL}/api/player3`)) return streamUrl;
+  // Player 3 Xtream already returns a backend stream with Range support.
   if (streamUrl.startsWith(`${BACKEND_URL}/functions/v1/xtream-test`)) return streamUrl;
   const base = `${BACKEND_URL}/functions/v1/extract-stream`;
   const params = new URLSearchParams({ proxy: streamUrl });
@@ -108,8 +104,8 @@ export function playbackProxyUrl(streamUrl: string, referer?: string): string {
 }
 export interface XtreamCredentials { host: string; username: string; password: string; }
 export async function getDirectStreamUrl(id: string, type: 'movie' | 'serie', season: number, episode: number, signal?: AbortSignal): Promise<DirectStream | null> {
-  // Player 3 is Xtream-only. Credentials live in backend env vars; React never receives the user/password.
-  const response = await fetch(PLAYER3_API, {
+  // Player 3 is Xtream-only. Credentials live in backend secrets; the backend maps TMDB id to the Xtream id.
+  const response = await fetch(`${BACKEND_URL}/functions/v1/xtream-test`, {
     method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tmdbId: id, type, season, episode }),
   });
