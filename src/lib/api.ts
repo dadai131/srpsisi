@@ -103,11 +103,11 @@ export function playbackProxyUrl(streamUrl: string, referer?: string): string {
   return `${base}?${params.toString()}`;
 }
 export interface XtreamCredentials { host: string; username: string; password: string; }
-export async function getDirectStreamUrl(id: string, type: 'movie' | 'serie', season: number, episode: number, credentials: XtreamCredentials, signal?: AbortSignal): Promise<DirectStream | null> {
-  // Player 3 is Xtream-only. The backend maps the site's TMDB id to the Xtream stream/episode id.
+export async function getDirectStreamUrl(id: string, type: 'movie' | 'serie', season: number, episode: number, signal?: AbortSignal): Promise<DirectStream | null> {
+  // Player 3 is Xtream-only. Credentials live in backend secrets; the backend maps TMDB id to the Xtream id.
   const response = await fetch(`${BACKEND_URL}/functions/v1/xtream-test`, {
     method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tmdbId: id, type, season, episode, credentials }),
+    body: JSON.stringify({ tmdbId: id, type, season, episode }),
   });
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
