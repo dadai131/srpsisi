@@ -142,7 +142,9 @@ Deno.serve(async req => {
     endpoint.searchParams.set('vod', resolved.id);
     endpoint.searchParams.set('ext', resolved.ext);
     endpoint.searchParams.set('kind', kind);
-    endpoint.searchParams.set('session', packAuth(auth));
+    // Backend secrets never leave the server; only ad-hoc test credentials are packed into the URL.
+    const usesEnv = auth.host === ENV_AUTH.host && auth.user === ENV_AUTH.user && auth.pass === ENV_AUTH.pass;
+    if (!usesEnv) endpoint.searchParams.set('session', packAuth(auth));
     return json({ streamUrl: endpoint.toString(), kind: resolved.ext === 'm3u8' ? 'hls' : 'mp4', source: 'xtream', streamId: resolved.id });
   } catch (e) {
     return json({ error: `Falha no Xtream: ${(e as Error).message}` }, 502);
