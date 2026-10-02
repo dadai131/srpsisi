@@ -11,16 +11,6 @@ const ENV_AUTH: XtreamAuth = {
   user: Deno.env.get('XTREAM_USER') || '',
   pass: Deno.env.get('XTREAM_PASS') || '',
 };
-const enc = (value: string) => btoa(unescape(encodeURIComponent(value))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-const dec = (value: string) => decodeURIComponent(escape(atob(value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4))));
-const packAuth = (auth: XtreamAuth) => enc(JSON.stringify(auth));
-const unpackAuth = (value: string): XtreamAuth | null => {
-  try {
-    const auth = JSON.parse(dec(value));
-    if (!auth?.host || !auth?.user || !auth?.pass) return null;
-    return { host: String(auth.host).replace(/\/+$/, ''), user: String(auth.user), pass: String(auth.pass) };
-  } catch { return null; }
-};
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { ...cors, 'content-type': 'application/json', 'cache-control': 'no-store' },
@@ -85,7 +75,7 @@ async function resolveMovie(auth: XtreamAuth, tmdbId: string) {
   if (!Array.isArray(list)) return null;
   const item = list.find((x: any) => tmdbOf(x) === tmdbId) || matchItem(list, meta, 'stream_icon');
   if (!item?.stream_id) return null;
-  return { id: String(item.stream_id), ext: String(item.container_extension || 'mp4').replace(/[^a-z0-9]/gi, '') || 'mp4' };
+  return { id: String(item.stream_id) };
 }
 async function resolveEpisode(auth: XtreamAuth, tmdbId: string, season: number, episode: number) {
   const [list, meta] = await Promise.all([fetchJson(api(auth, 'get_series')), tmdbMeta('tv', tmdbId)]);
@@ -96,13 +86,12 @@ async function resolveEpisode(auth: XtreamAuth, tmdbId: string, season: number, 
   const episodes = info?.episodes?.[String(season)] || info?.episodes?.[season] || [];
   const ep = episodes.find((x: any) => Number(x?.episode_num ?? x?.episode) === episode) || episodes[episode - 1];
   if (!ep?.id) return null;
-  const ext = String(ep?.container_extension || ep?.info?.container_extension || 'mp4').replace(/[^a-z0-9]/gi, '') || 'mp4';
-  return { id: String(ep.id), ext };
+  return { id: String(ep.id) };
 }
-async function proxyMedia(req: Request, auth: XtreamAuth, kind: 'movie' | 'series', vod: string, ext: string) {
-  if (!/^\d{1,12}$/.test(vod) || !/^[a-z0-9]{2,5}$/i.test(ext)) return json({ error: 'ID de mídia inválido' }, 400);
+async function proxyMedia(req: Request, auth: XtreamAuth, kind: 'movie' | 'series', vod: string) {
+  if (!/^\d{1,12}$/.test(vod)) return json({ error: 'ID de mídia inválido' }, 400);
   const range = req.headers.get('range');
-  const upstream = await fetch(`${auth.host}/${kind}/${encodeURIComponent(auth.user)}/${encodeURIComponent(auth.pass)}/${vod}.${ext}`, {
+  const upstream = await fetch(`${auth.host}/${kind}/${encodeURIComponent(auth.user)}/${encodeURIComponent(auth.pass)}/${vod}.ts`, {
     redirect: 'follow', signal: AbortSignal.timeout(15000),
     headers: { 'User-Agent': 'Mozilla/5.0', ...(range ? { Range: range } : {}) },
   });
@@ -110,7 +99,7 @@ async function proxyMedia(req: Request, auth: XtreamAuth, kind: 'movie' | 'serie
   for (const name of ['content-type', 'content-length', 'content-range', 'accept-ranges']) {
     const value = upstream.headers.get(name); if (value) headers.set(name, value);
   }
-  if (!headers.has('content-type')) headers.set('content-type', ext === 'm3u8' ? 'application/vnd.apple.mpegurl' : 'video/mp4');
+  if (!headers.has('content-type')) headers.set('content-type', 'video/mp2t');
   return new Response(upstream.body, { status: upstream.status, headers });
 }
 
@@ -120,12 +109,11 @@ Deno.serve(async req => {
     const url = new URL(req.url);
     if (req.method === 'GET') {
       const vod = url.searchParams.get('vod') || '';
-      const ext = url.searchParams.get('ext') || 'mp4';
       const kind = url.searchParams.get('kind') === 'series' ? 'series' : 'movie';
       // Bridge only: always the backend secrets, never client-supplied servers.
       const auth = ENV_AUTH;
       if (!auth.host || !auth.user || !auth.pass) return json({ error: 'Xtream não configurado' }, 503);
-      return await proxyMedia(req, auth, kind, vod, ext);
+      return await proxyMedia(req, auth, kind, vod);
     }
     if (req.method !== 'POST') return json({ error: 'Método não permitido' }, 405);
 
@@ -146,12 +134,8 @@ Deno.serve(async req => {
     const endpoint = new URL(`${(Deno.env.get('SUPABASE_URL') || 'https://xfqocptliyukeypvylom.supabase.co').replace(/\/+$/, '')}/functions/v1/xtream-test`);
     endpoint.search = '';
     endpoint.searchParams.set('vod', resolved.id);
-    endpoint.searchParams.set('ext', resolved.ext);
     endpoint.searchParams.set('kind', kind);
-    // Backend secrets never leave the server; only ad-hoc test credentials are packed into the URL.
-    const usesEnv = auth.host === ENV_AUTH.host && auth.user === ENV_AUTH.user && auth.pass === ENV_AUTH.pass;
-    if (!usesEnv) endpoint.searchParams.set('session', packAuth(auth));
-    return json({ streamUrl: endpoint.toString(), kind: resolved.ext === 'm3u8' ? 'hls' : 'mp4', source: 'xtream', streamId: resolved.id });
+    return json({ streamUrl: endpoint.toString(), kind: 'mp4', source: 'xtream-ts', streamId: resolved.id });
   } catch (e) {
     return json({ error: `Falha no Xtream: ${(e as Error).message}` }, 502);
   }
