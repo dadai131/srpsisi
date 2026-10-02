@@ -33,10 +33,22 @@ function tmdbOf(item: any): string {
   for (const value of values) if (/^\d{1,12}$/.test(String(value ?? ''))) return String(Number(value));
   return '';
 }
+// Cache + in-flight dedupe so the provider's rate limit sees few player_api.php calls.
+const cache = new Map<string, { exp: number; val: Promise<any> }>();
+function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
+  const hit = cache.get(key);
+  if (hit && hit.exp > Date.now()) return hit.val;
+  const val = fn().catch(e => { cache.delete(key); throw e; });
+  cache.set(key, { exp: Date.now() + ttlMs, val });
+  return val;
+}
 async function fetchJson(url: string) {
-  const res = await fetch(url, { signal: AbortSignal.timeout(12000), headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`Xtream API ${res.status}`);
-  return await res.json();
+  const ttl = /get_(vod_streams|series)(&|$)/.test(url) ? 30 * 60_000 : 60 * 60_000;
+  return cached(url, ttl, async () => {
+    const res = await fetch(url, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`Xtream API ${res.status}`);
+    return await res.json();
+  });
 }
 // Catalog items carry no reliable tmdb id, so fall back to TMDB poster filename + title/year.
 const norm = (s: string) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
