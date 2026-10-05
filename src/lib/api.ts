@@ -111,7 +111,7 @@ export async function getDirectStreamUrl(id: string, type: 'movie' | 'serie', se
   });
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.error || `Falha ao buscar vídeo no Xtream (${response.status})`);
+    throw new Error('Player 3 indisponível agora. Tente Player 1 ou Player 2.');
   }
   const data = await response.json();
   return data?.streamUrl ? data : null;

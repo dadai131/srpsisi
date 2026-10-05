@@ -88,18 +88,49 @@ async function resolveEpisode(auth: XtreamAuth, tmdbId: string, season: number, 
   if (!ep?.id) return null;
   return { id: String(ep.id) };
 }
+// Ask the panel for {id}.ts once, follow its redirects manually and keep only the real .mp4 file URL.
+// Seeks (Range requests) then hit the CDN mp4 directly, so the Xtream panel isn't called again.
+const mp4Cache = new Map<string, { url: string; exp: number }>();
+async function resolveMp4(auth: XtreamAuth, kind: 'movie' | 'series', vod: string): Promise<string> {
+  const key = `${kind}:${vod}`;
+  const hit = mp4Cache.get(key);
+  if (hit && hit.exp > Date.now()) return hit.url;
+  let url = `${auth.host}/${kind}/${encodeURIComponent(auth.user)}/${encodeURIComponent(auth.pass)}/${vod}.ts`;
+  for (let i = 0; i < 6; i++) {
+    const r = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(15000), headers: { 'User-Agent': 'Mozilla/5.0', Range: 'bytes=0-0' } });
+    const loc = r.headers.get('location');
+    if (r.status >= 300 && r.status < 400 && loc) {
+      await r.body?.cancel();
+      url = new URL(loc, url).toString();
+      if (/bloqueado/i.test(url)) throw Object.assign(new Error('blocked'), { status: 403 });
+      continue;
+    }
+    await r.body?.cancel();
+    if (!r.ok) throw Object.assign(new Error(`upstream ${r.status}`), { status: r.status });
+    break;
+  }
+  mp4Cache.set(key, { url, exp: Date.now() + 20 * 60_000 });
+  return url;
+}
 async function proxyMedia(req: Request, auth: XtreamAuth, kind: 'movie' | 'series', vod: string) {
   if (!/^\d{1,12}$/.test(vod)) return json({ error: 'ID de mídia inválido' }, 400);
   const range = req.headers.get('range');
-  const upstream = await fetch(`${auth.host}/${kind}/${encodeURIComponent(auth.user)}/${encodeURIComponent(auth.pass)}/${vod}.ts`, {
-    redirect: 'follow', signal: AbortSignal.timeout(15000),
-    headers: { 'User-Agent': 'Mozilla/5.0', ...(range ? { Range: range } : {}) },
-  });
+  let mp4: string;
+  try { mp4 = await resolveMp4(auth, kind, vod); }
+  catch (e) { return json({ error: 'Player 3 indisponível agora. Tente Player 1 ou Player 2.' }, (e as any).status || 502); }
+  let upstream = await fetch(mp4, { signal: req.signal, headers: { 'User-Agent': 'Mozilla/5.0', ...(range ? { Range: range } : {}) } });
+  if (!upstream.ok) {
+    // Signed CDN link expired: resolve again once.
+    await upstream.body?.cancel(); mp4Cache.delete(`${kind}:${vod}`);
+    try { mp4 = await resolveMp4(auth, kind, vod); } catch { return json({ error: 'Player 3 indisponível agora. Tente Player 1 ou Player 2.' }, 502); }
+    upstream = await fetch(mp4, { signal: req.signal, headers: { 'User-Agent': 'Mozilla/5.0', ...(range ? { Range: range } : {}) } });
+    if (!upstream.ok) { await upstream.body?.cancel(); return json({ error: 'Player 3 indisponível agora. Tente Player 1 ou Player 2.' }, upstream.status); }
+  }
   const headers = new Headers(cors);
-  for (const name of ['content-type', 'content-length', 'content-range', 'accept-ranges']) {
+  for (const name of ['content-length', 'content-range', 'accept-ranges']) {
     const value = upstream.headers.get(name); if (value) headers.set(name, value);
   }
-  if (!headers.has('content-type')) headers.set('content-type', 'video/mp2t');
+  headers.set('content-type', 'video/mp4');
   return new Response(upstream.body, { status: upstream.status, headers });
 }
 
