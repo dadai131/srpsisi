@@ -1,6 +1,6 @@
 // Port of get_stream.py: public HTML sources only; never solve challenges.
 export const PROVIDERS = ['mgeb.top', 'nhdapi.com', 'superflixapi.quest'];
-const MEDIA_HOSTS = [...PROVIDERS, '123flmsfree.com', 's1q2105.com', 'flyfile.app'];
+const MEDIA_HOSTS = [...PROVIDERS, '123flmsfree.com', 's1q2105.com', 'flyfile.app', 'streamtape.com', 'tapecontent.net', '97bf1.com', 'cuevana4br.com', 'playercdn.workers.dev', 'playercdn.xyz'];
 export function allowedUrl(value) {
   try {
     const u = new URL(value);
@@ -20,8 +20,13 @@ export function candidates(source) {
 export function extractUrls(html, base) {
   const text = html.replace(/\\\//g, '/').replace(/\\u002[fF]/g, '/').replace(/\\u0026|&amp;/g, '&');
   if (/challenges\.cloudflare\.com\/turnstile|cf_embed_challenge|cf-turnstile-response/i.test(text)) return [];
-  const matches = text.match(/(?:https?:\/\/|\/\/|\.\.?\/|\/)[^\s"'<>\\]*?\.(?:m3u8|mp4)(?:\?[^\s"'<>\\]*)?/gi) || [];
-  return [...new Set(matches.map(value => new URL(value, base).href))].filter(allowedUrl);
+  // Fontes declaradas no player (var sources = [...]): MP4 primeiro, como no get_stream.py.
+  const declared = [];
+  const src = text.match(/var\s+sources\s*=\s*(\[[\s\S]*?\]);/);
+  if (src) { try { for (const s of JSON.parse(src[1])) if (s?.file) declared.push({ file: s.file, mp4: s.type === 'mp4' }); } catch { /* ignore */ } }
+  declared.sort((a, b) => Number(b.mp4) - Number(a.mp4));
+  const matches = declared.map(d => d.file).concat(text.match(/(?:https?:\/\/|\/\/|\.\.?\/|\/)[^\s"'<>\\]*?\.(?:m3u8|mp4)(?:\?[^\s"'<>\\]*)?/gi) || []);
+  return [...new Set(matches.map(value => new URL(value.replace(/^(https?:\/\/[^/]+)\/(?:\.\.?\/)+/, '$1/'), base).href))].filter(allowedUrl);
 }
 export function expiresAt(text) {
   const values = [...text.matchAll(/(?:exp=|expires=)(\d{10,13})/g)].map(m => Number(m[1]) * (m[1].length === 13 ? 1 : 1000));

@@ -55,9 +55,9 @@ async function extract(source: string) {
       const loaded = await upstream(page, REFERER);
       if (!loaded.response.ok) { await loaded.response.body?.cancel(); continue; }
       const html = await readText(loaded.response);
-      for (const stream of extractUrls(html, loaded.url).slice(0, 4)) {
+      for (const stream of extractUrls(html, loaded.url).slice(0, 8)) {
         try {
-          const kind = new URL(stream).pathname.toLowerCase().endsWith('.m3u8') ? 'hls' : 'mp4';
+          const kind = /\.m3u8/i.test(stream) ? 'hls' : 'mp4';
           const media = await upstream(stream, REFERER, kind === 'mp4' ? 'bytes=0-4095' : null);
           if (!media.response.ok) { await media.response.body?.cancel(); continue; }
           let expiry = expiresAt(stream);
@@ -73,7 +73,7 @@ async function extract(source: string) {
             if (/html|json/i.test(ct)) continue;
           }
           if (expiry && expiry <= Date.now()) continue;
-          return { streamUrl: media.url, kind, referer: REFERER, expiresAt: expiry, source: new URL(page).hostname };
+          return { streamUrl: kind === 'mp4' ? stream : media.url, kind, referer: REFERER, expiresAt: expiry, source: new URL(page).hostname };
         } catch { /* Try next stream. */ }
       }
     } catch { /* Try next provider, including on timeout. */ }
@@ -85,7 +85,7 @@ async function proxy(target: string, req: Request) {
   const { response, url } = await upstream(target, REFERER, req.headers.get('range'));
   if (!response.ok) { await response.body?.cancel(); return json({ error: 'Fonte indisponível' }, response.status); }
   const ct = response.headers.get('content-type') || '';
-  if (/mpegurl/i.test(ct) || new URL(url).pathname.endsWith('.m3u8')) {
+  if (/mpegurl/i.test(ct) || /\.m3u8/i.test(url)) {
     const body = await readText(response);
     if (!body.trimStart().startsWith('#EXTM3U')) return json({ error: 'Playlist inválida' }, 502);
     const endpoint = new URL(req.url); endpoint.search = '';
@@ -110,7 +110,7 @@ serve(async req => {
       if (!/^\d{1,12}$/.test(String(body.id)) || !['movie', 'serie'].includes(body.type)) return json({ error: 'ID inválido' }, 400);
       const season = body.season ?? 1, episode = body.episode ?? 1;
       if (body.type === 'serie' && (![season, episode].every(value => Number.isInteger(value) && value > 0 && value < 10000))) return json({ error: 'Episódio inválido' }, 400);
-      sourceUrl = body.type === 'movie' ? `https://superflixapi.quest/filme/${body.id}` : `https://superflixapi.quest/serie/${body.id}/${season}/${episode}`;
+      sourceUrl = body.type === 'movie' ? `https://mgeb.top/filme/${body.id}` : `https://mgeb.top/serie/${body.id}/${season}/${episode}`;
     }
     if (typeof sourceUrl !== 'string') return json({ error: 'URL inválida' }, 400);
     try { candidates(sourceUrl); } catch { return json({ error: 'Conteúdo inválido' }, 400); }
