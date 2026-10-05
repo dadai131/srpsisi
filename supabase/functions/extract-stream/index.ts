@@ -73,7 +73,7 @@ async function extract(source: string) {
             if (/html|json/i.test(ct)) continue;
           }
           if (expiry && expiry <= Date.now()) continue;
-          return { streamUrl: media.url, kind, referer: REFERER, expiresAt: expiry, source: new URL(page).hostname };
+          return { streamUrl: kind === 'mp4' ? stream : media.url, kind, referer: REFERER, expiresAt: expiry, source: new URL(page).hostname };
         } catch { /* Try next stream. */ }
       }
     } catch { /* Try next provider, including on timeout. */ }
