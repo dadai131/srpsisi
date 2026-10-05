@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <script>
+    // Normalizar URLs onde o query parameter foi colocado acidentalmente após o hash
+    // Ex: /embed/123#color:fb542b?player=vidstack -> /embed/123?player=vidstack#color:fb542b
+    if (window.location.hash.includes('?player=') || window.location.hash.includes('&player=')) {
+        var _hash = window.location.hash;
+        var _match = _hash.match(/[?&]player=([^&]+)/);
+        if (_match) {
+            var _newHash = _hash.replace(_match[0], '');
+            var _url = new URL(window.location.href);
+            _url.hash = _newHash;
+            _url.searchParams.set('player', _match[1]);
+            window.location.replace(_url.href);
+        }
+    }
+  </script>
+  <script>
+    // Detecção ativa de Sandbox (iframe restritivo) e Bloqueio de Anúncios/JS em WebViews Android
+    (function() {
+      var isSandboxed = false;
+      var isWebView = /wv|Android.*Version\/[0-9.]+/i.test(navigator.userAgent) || navigator.userAgent.includes('Version/4.0');
+      
+      try {
+        var storage = window.localStorage;
+        if (!storage) isSandboxed = true;
+      } catch (e) {
+        isSandboxed = true; // Falha no storage = sandbox sem allow-same-origin
+      }
+      
+      if (window.origin === 'null' || window.origin === 'about:srcdoc') {
+        isSandboxed = true; // Origem opaca = sandbox
+      }
+
+      try {
+        var _docDomain = document.domain;
+        document.domain = _docDomain;
+      } catch (e) {
+        if (e.name === 'SecurityError' && e.message && e.message.toLowerCase().indexOf('sandbox') !== -1) {
+            isSandboxed = true;
+        }
+      }
+
+      if (isSandboxed) {
+        window.location.href = "https://mgeb.top/app/sandbox.php?type=" + (isWebView ? "webview" : "sandbox");
+        return;
+      }
+
+      // Se for rodado dentro de uma WebView Android, adiciona detector contra AdBlockers/bloqueadores de JS
+      if (isWebView) {
+        window.addEventListener('DOMContentLoaded', function() {
+          var testAd = document.createElement('div');
+          testAd.innerHTML = '&nbsp;';
+          testAd.className = 'adsbox ad-banner ad-placement adsbygoogle';
+          testAd.style.position = 'absolute';
+          testAd.style.left = '-9999px';
+          testAd.style.top = '-9999px';
+          document.body.appendChild(testAd);
+          
+          window.setTimeout(function() {
+            var isAdBlocked = (testAd.offsetHeight === 0 || testAd.offsetParent === null);
+            document.body.removeChild(testAd);
+            if (isAdBlocked) {
+              window.location.href = "https://mgeb.top/app/sandbox.php?type=webview";
+            }
+          }, 350);
+        });
+      }
+    })();
+  </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>007: Cassino Royale</title>
+  <!-- Webstats Content Tracking (Vidstats Monetization) -->
+  <script type="module">
+    (function() {
+      window.webstats = window.webstats || function() { (window.webstats.q = window.webstats.q || []).push(arguments); };
+      
+      var contentPayload = {
+        type: "movie",
+        ids: {"tmdb":"36557"},
+        title: "007: Cassino Royale"      };
+      
+      
+      if (contentPayload.ids && Object.keys(contentPayload.ids).length > 0) {
+        window.webstats('content', contentPayload);
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="https://mgeb.top/assets/styles.css" />
+  <style>
+    html, body { width:100%; height:100%; margin:0; padding:0; background:#000; overflow:hidden; }
+    .player-main { position:fixed; inset:0; width:100%; height:100%; overflow:hidden; }
+    .player-main iframe#embed { position:absolute; inset:0; width:100%; height:100%; border:0; background:#000; display:block; }
+    .alert{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); max-width:min(90vw,720px); color:#fff; background:#161922; border:1px solid #2c2f36; border-radius:.5rem; padding:12px; z-index:4;}
+    
+    #embed-container { display:none; position:absolute; inset:0; z-index:20; background:#000; }
+    
+    #target { width: 100%; height: 100%; position: absolute; inset: 0; }
+    
+    #target iframe {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        border: 0 !important;
+        display: block !important;
+    }
+    
+    /* Garantir que o componente do player sempre tenha dimensões para calcular o layout */
+    media-player {
+        width: 100% !important;
+        height: 100% !important;
+        display: block !important;
+        background: #000;
+    }
+
+    /* Force centered cover for Vidstack poster */
+    media-poster {
+        --media-poster-fit: cover !important;
+        --media-poster-position: center center !important;
+        /* Ensure the element itself is also covering the container */
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover !important;
+        object-position: center center !important;
+    }
+    media-poster img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        object-position: center center !important;
+    }
+  </style>
+  
+    <!-- MegaTube Player Assets & Engine -->
+  <link rel="stylesheet" href="https://mgeb.top/player/megatube.css?v=2.6" />
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"></script>
+  <script type="module" src="https://mgeb.top/player/megatube.js?v=2.6"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/disable-devtool@latest"></script>
+<script>
+  DisableDevtool({
+    disableMenu: true,
+    disableSelect: false,
+    disableCopy: false,
+    disableCut: true,
+    disablePaste: false,
+    clearLog: true,
+    interval: 500,
+    detectors: [0, 1, 3, 4, 5, 6, 7],
+    ondevtoolopen: function(type, next) {
+      window.location.href = 'https://onclickperformance.com/jump/next.php?r=11872274';
+    }
+  });
+</script>
+
+   <!-- Histats.com  START  (aync)-->
+<script type="text/javascript">var _Hasync= _Hasync|| [];
+_Hasync.push(['Histats.start', '1,5046735,4,0,0,0,00010000']);
+_Hasync.push(['Histats.fasi', '1']);
+_Hasync.push(['Histats.track_hits', '']);
+(function() {
+var hs = document.createElement('script'); hs.type = 'text/javascript'; hs.async = true;
+hs.src = ('//s10.histats.com/js15_as.js');
+(document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(hs);
+})();</script>
+<noscript><a href="/" target="_blank"><img  src="//sstatic1.histats.com/0.gif?5046735&101" alt="" border="0"></a></noscript>
+<!-- Histats.com  END  -->
+    
+</head>
+<body>
+  <!-- Overlay Premium para caso os Scripts estejam bloqueados pela Sandbox (noscript) -->
+  <noscript>
+    <div style="position:fixed; inset:0; z-index:999999; background:#070913; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Outfit', sans-serif; text-align:center; padding:12px; overflow-y:auto; box-sizing:border-box;">
+      <div style="width:100%; max-width:550px; max-height:calc(100vh - 24px); overflow-y:auto; background:rgba(18, 22, 47, 0.95); border:1px solid rgba(255, 51, 51, 0.3); border-radius:16px; padding:20px; box-shadow:0 20px 50px rgba(0,0,0,0.6); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); display:flex; flex-direction:column; align-items:center; box-sizing:border-box;">
+        
+        <div style="position:relative; width:64px; height:64px; background:rgba(255, 51, 51, 0.1); border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:20px; border:1px solid rgba(255, 51, 51, 0.3); flex-shrink:0;">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ff3333" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+          </svg>
+        </div>
+
+        <h1 style="font-size:22px; font-weight:800; letter-spacing:-0.5px; color:#ffffff; margin:0 0 12px 0; background:linear-gradient(to right, #ffffff, #ff9999); -webkit-background-clip:text; -webkit-text-fill-color:transparent; flex-shrink:0; font-family:'Outfit', sans-serif;">Sandbox Detectada</h1>
+        
+        <p style="font-size:14px; line-height:1.5; color:#9ca3af; margin:0 0 20px 0; flex-shrink:0; font-family:'Outfit', sans-serif;">
+          Este reprodutor de vídeo foi bloqueado porque o seu iframe está rodando sob restrições estritas de <strong>sandbox</strong>. Isso impede a execução das APIs do MegaEmbed.
+        </p>
+
+        <div style="background:rgba(77, 166, 255, 0.08); border:1px solid rgba(77, 166, 255, 0.2); border-radius:12px; padding:14px; font-size:12.5px; line-height:1.4; color:#cbd5e1; margin:0 0 20px 0; width:100%; flex-shrink:0; box-sizing:border-box; text-align:left;">
+          💡 <strong>Prefere integração via link direto</strong> Sem anúncios? utilize a <strong>API Xtream</strong> disponível no seu <a href="https://mgeb.top" target="_blank" style="color:#4da6ff; font-weight:600; text-decoration:underline;">Painel</a>.
+        </div>
+
+        <div style="font-size:11px; color:#4b5563; margin-top:16px; flex-shrink:0; font-family:'Outfit', sans-serif;">
+          MegaEmbed Player &copy; 2026. Todos os direitos reservados.
+        </div>
+      </div>
+    </div>
+  </noscript>
+  <div class="player-main">
+          <div id="target" style="width:100%;height:100%;"></div>
+            <script>
+        window.MEGAEMBED_PROXIES = [{"url":"https://cdn1.playercdn.xyz","weight":1},{"url":"https://cdn2.playercdn.xyz","weight":5},{"url":"https://jolly-snowflake-bfb4.playercdnn.workers.dev","weight":10},{"url":"https://solitary-field-9699.playercdn.workers.dev","weight":40},{"url":"https://old-mountain-0552.playercdns.workers.dev","weight":10},{"url":"https://green-moon-0081.playercdnnss.workers.dev","weight":10},{"url":"https://crimson-shadow-698a.powestream.workers.dev","weight":10},{"url":"https://sparkling-art-6d5f.playerscdnn.workers.dev","weight":10},{"url":"https://muddy-art-490f.playerscdnns.workers.dev","weight":10},{"url":"https://muddy-art-490f.playerscdnns.workers.dev","weight":10}];
+        // Stub orientações/sensores para evitar alertas de Permissions-Policy no console
+        try {
+            Object.defineProperty(window, 'DeviceOrientationEvent', { value: undefined, configurable: true });
+            Object.defineProperty(window, 'DeviceMotionEvent', { value: undefined, configurable: true });
+        } catch (e) {}
+      </script>
+      
+      <script type="module">
+        window.megaSeasonEpisodes = [];
+
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fontes vindas do PHP (pode incluir locais e externas/embeds misturadas)
+            var sources = [{"file":"http://www-fontedecanais-sh.57lgoe65efxo71.com:80/movies/23/94141.mp4?username=PlayTvOficial-vods&token=C1EQAgcOWlBaW0lCVllfW0lbR04FAAEZBAoVD0lWUiMIChM%2FDiUNBRMaBQdHHRcOGE5cUQkKEjQbBQUCFRAQAgUFC0hRTkJGVElGSRoLBQgHGgAfAklCW15CQV9GCAUFDA8FGC8aAElQXUxTWF9EDg%3D%3D","type":"mp4","label":"Opção 1"},{"file":"https://cdn2.playercdn.xyz/includes/hls.php?url=MdDQNHoXP9ht9nJlSUiJTiRFG7TOY-HRuNli0aGkd-3Hl8Cuzes7LJH5TSqo6yrb2WNgoUO-tWKCV02HLDMdkhlMIYTO6szSF8nyu3XnnLGHBIoL2RJbWI84bxHEu7fCp3_JCmzv_iZK0IA-gQgEoQ&file=master.m3u8&referer=https%3A%2F%2Fembedplayer2.xyz%2F","type":"hls","label":"Opção 2"}];
+            var title = "007: Cassino Royale";
+            var poster = "https:\/\/image.tmdb.org\/t\/p\/original\/klJMCIblHLFwCuGjKz7tyOpekIC.jpg";
+            var backdrop = "https:\/\/image.tmdb.org\/t\/p\/original\/klJMCIblHLFwCuGjKz7tyOpekIC.jpg";
+            var mainPoster = "https:\/\/image.tmdb.org\/t\/p\/original\/lfOk6E07jTLZsxj0SoSoAmTqhk1.jpg";
+            var overview = "Depois de obter o status 00 e uma licença para matar, o agente secreto James Bond parte em sua primeira missão como 007. Bond precisa derrotar um banqueiro privado que financia terroristas em um jogo de pôquer de alto risco no Casino Royale, Montenegro.";
+            var rating = "";
+            var year = 2006;
+            var genres = "Aventura, Ação, Thriller";
+            var ageRating = "";
+            var fallbackUrl = "";
+
+            
+            // Se sources estiver vazio, mas tivermos uma URL de fallback (ex: API de terceiro)
+            if (!sources || sources.length === 0) {
+                if (fallbackUrl) {
+                    sources = [{
+                        file: fallbackUrl,
+                        type: "iframe",
+                        label: "Opção Padrão"
+                    }];
+                }
+            } else if (fallbackUrl) {
+                // Se temos fontes locais, mas também temos uma URL de fallback configurada,
+                // adicionamos a URL de fallback como a última opção na lista de fontes!
+                // Assim, se todas as fontes locais falharem, o player automaticamente
+                // fará o fallback para a API de terceiro!
+                var exists = sources.some(function(src) {
+                    var fileUrl = src.file || src.url || src.src || src;
+                    return fileUrl === fallbackUrl;
+                });
+                if (!exists) {
+                    sources.push({
+                        file: fallbackUrl,
+                        type: "iframe",
+                        label: "API de Terceiro (Fallback)"
+                    });
+                }
+            }
+
+            // Inicializa o gerenciador híbrido
+            var attempts = 0;
+             var activePlayerType = "megatube";
+             var interval = setInterval(function() {
+                 var playerInstance = null;
+                 if (activePlayerType === 'clappr') {
+                     playerInstance = window.CustomClapprPlayer;
+                 } else if (activePlayerType === 'megaplay') {
+                     playerInstance = window.CustomMegaplayPlayer;
+                 } else if (activePlayerType === 'megatube') {
+                     playerInstance = window.CustomMegatubePlayer;
+                 } else {
+                     playerInstance = window.CustomVidstackPlayer;
+                 }
+                
+                if (playerInstance) {
+                    clearInterval(interval);
+                    var tmdbId = "36557";
+                    var season = null;
+                    var episode = null;
+                    var mediaType = "movie";
+                    
+                    playerInstance.init('target', sources, title, poster, backdrop, tmdbId, season, episode, mediaType, overview, mainPoster, rating, year, genres, ageRating);
+
+                }
+                attempts++;
+                if (attempts > 50) clearInterval(interval);
+            }, 100);
+        });
+      </script>
+      
+      </div>
+
+  <!-- ADS INJECTION -->
+                  <script id="aclib" type="text/javascript" src="//acscdn.com/script/aclib.js"></script>
+<script type="text/javascript">
+    aclib.runPop({
+        zoneId: '10976362',
+    });
+</script>        
+ <script>window.__CF$cv$params={r:'a45e7ee6ef813466',t:'MTc5MTIyNTAwNw==',u:'01a10d5495f877318faadd817c1532c0',ut:'0sr4VKIr47Vp2dSWG1oFFZctZO8xemdcwJ.YlmjSTAI-1791225009-1.2.1.1-K5h3t5ywQwXxjI2d26MN_ZBxu0uXtpPQXb0xVSrEI1PFqcyveIA0RoZIs4t8_lBjmM9sHG47o.SoX0Vm9YtiPMqVKhBfJC_mPZq7zUXBiX4',i:60};(function(){if(!document.body)return;var s=document.createElement('script');s.src='/cdn-cgi/challenge-platform/scripts/precursor/main.js';document.head.appendChild(s);})();</script></body>
+</html>

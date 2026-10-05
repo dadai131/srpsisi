@@ -1,0 +1,65 @@
+{
+  "input_url": "https://superflixapi.quest/filme/36557",
+  "derived_embed_used": "https://mgeb.top/embed/36557",
+  "html": {
+    "m3u8": [],
+    "mp4": [],
+    "iframes": [],
+    "turnstile": true,
+    "titles": [
+      "Verificação"
+    ]
+  },
+  "playlists": {
+    "https://cdn2.playercdn.xyz/includes/hls.php?url=MdDQNHoXP9ht9nJlSUiJTiRFG7TOY-HRuNli0aGkd-3Hl8Cuzes7LJH5TSqo6yrb2WNgoUO-tWKCV02HLDMdkhlMIYTO6szSF8nyu3XnnLGHBIoL2RJbWI84bxHEu7fCp3_JCmzv_iZK0IA-gQgEoQ&file=master.m3u8": {
+      "kind": "master",
+      "vod": false,
+      "variants": [
+        {
+          "uri": "https://cdn2.playercdn.xyz/includes/hls.php?url=xMM8kM4eUsbMruOn_kptw6Q12mzjUwtb0T2JGe4Ar_R3ULZLafepVdxQUBAvT-OADKPt7JWT6aVgH3c7kA2nZg9gXzTe-WYtMX7kx-2-DO_Y2TwSiDZyKEqyDKJQXLTTVGWXjEZM5p1xsjVhwt-jzpeXMDn_1HPInOWDYjWZfT36RjdCt_eqM493k58LfYHbn5nmQkVL4ygLWlWkGPS32QvjjORdYoq9-HleYXretXS0AqqkRL_5wTMRC93_wf0ESszYrFdDPKRqEAmzwU4lrOGorWfQresR-CeO-eHypcn0hB7pfqaYuy3rUoeZ5WMBfjvl3w8VPi4rg0aSv7lOF3wfdfDW55TUk7QWNSRdRSecnBF5u4ueg8f2tXO-uYDUllOCx3wUZn0sZRHFxamcbQ8Fts2HREUalGzMDYzunV8FNhGmvIgL1m-kyuO8bNp7PAYrTTuqTfltGFsIzUQoQARuoi8fqPbBxN8l5tbis3CwiGeyJzD1B_y0pedpNHxIvefCBaS44KSNRogyLthC2p1SacUY3qWuuVe8T7t4Ksxg-hm9yLX43NrhxzrzVGum8YN8Z4-FPLWTH4vcfiIkT_G64mP0AwKphn5r-4GeLJ0&file=YmF4S01ZV2tHMjA0c1B3MXppNEs5YU_9a84c2c4d5.m3u8&referer=https%3A%2F%2Fembedplayer2.xyz%2F",
+          "bandwidth": "2048000",
+          "resolution": "1280x720",
+          "name": "720p"
+        },
+        {
+          "uri": "https://cdn2.playercdn.xyz/includes/hls.php?url=vos_LB6ngZKA7xlS6x9AemU6ctnimhhka2_RhmkRVnZcebUuF9dym9X9ZYilbFNeAb_xotlQJ6ebhRuWdZPLe4wlgW7YMNucmlkuP5wp2G_fAgOhCAF6tj3IBvsj1i1tIaPXgr8zo0CXLw7puJwiVZ2FGaDPF8FmaQFYvO3Qi4kjFgp5LdC4XkJ6v_DZ2MPf5ih0rZpcxb9Z7CIhw5rVULiEk4YjWwU3FMRXoBXJjHu03hSo8SzVLoZgAgU76-Zi7POitDTs6o16ijcW4UAoMFNc6p7T2NjgnhtxMTmccAtPaArSPene0WO8EAs0j9eqaC32CAby73wNohZ02fuyfw_ugEozf7395uDWeznvnbu9-N7PE1IvzYrtf2tRCGGzq1cB-crMkGdihNK-2SXeWmUQkyhAp3CkvCgXyq2FVPq_XhBvwceInggDy5KtlvL78WScLp4LEwwzsL2LxEsg2aDeIprgQtV2Qb1hNcLUpEcz9As4F8CWrZKRaqSE3PGnwmo6lV_We075qNpH1K8-05oAXwaF-RdYzch3IhVccGKF2_OAfwtUL0SFq1hDMx92ekh_ZiboSbeFKmX3xtCJp54LBCBwn8CUsJ1oeVh8Jv0&file=YmF4S01ZV2tHMjA0c1B3MXppNEs5YU_a72793519d.m3u8&referer=https%3A%2F%2Fembedplayer2.xyz%2F",
+          "bandwidth": "276000",
+          "resolution": "640x360",
+          "name": "360p"
+        }
+      ],
+      "media": [
+        {
+          "type": "AUDIO",
+          "name": "Undefined",
+          "language": "und",
+          "uri": "https://cdn2.playercdn.xyz/includes/hls.php?url=nJuLeXDzNulr_ePiIOZXgS-1knN7yBOVqk8zMSijP2J-vm8vslCMe2iP5k67JXh-90D83XGGlWBaVWNheWXQ-MKXQrndYWY0eFCBrdga5XKeZ_eQIOmGF1IN2HC3npk3ME9c6uQvcbadBcV1MlMzrxxbxHKC-Ia3kROXzwYs0AMp5f3S72zV71xquBVOtOr3wcipNKcOEpaZNOjHVDe5mDvg9vtTn0pJNeWIfbz5Yos1MLv7kxQMsQm8Z2QrpKABkQI7NWeCmREWtqk0hrLHnMnVDEUoEQ54QriyqnlOIYf-k2vksrW85dM5VpAEA8IeHS0ArZcwCdX8Na8i4JOvZcY60ubpelhamri6fH2vxNm_2lr1ntaK4OGbhvzO5kU1G96ZVUGzGL63Rl_GfUYy5ERLAdKx4vxvzFx7qkU1e8GGRNmNHXbni0pQSZ7QPWbPXbPLr4RjmaAZ6dBKG3P4APS14Y_iLy7HDaAn1aGkQKELWJHl-K1ZByt4JNi7LyUL-z7p-t6prsjyQoVwbX-7zUQNEzuzCKMqNlvJFDmcL5_Ir7iFGaYZjZgwB6Lz9SLdbxWlYKNmAlXTreQygpY0a_qBCmHwwjnP1LLAPAUc2yw&file=YmF4S01ZV2tHMjA0c1B3MXppNEs5YU_9db1655fbb.m3u8&referer=https%3A%2F%2Fembedplayer2.xyz%2F"
+        }
+      ],
+      "segments": 0,
+      "duration_min": null
+    },
+    "https://cdn2.playercdn.xyz/includes/hls.php?url=xMM8kM4eUsbMruOn_kptw6Q12mzjUwtb0T2JGe4Ar_R3ULZLafepVdxQUBAvT-OADKPt7JWT6aVgH3c7kA2nZg9gXzTe-WYtMX7kx-2-DO_Y2TwSiDZyKEqyDKJQXLTTVGWXjEZM5p1xsjVhwt-jzpeXMDn_1HPInOWDYjWZfT36RjdCt_eqM493k58LfYHbn5nmQkVL4ygLWlWkGPS32QvjjORdYoq9-HleYXretXS0AqqkRL_5wTMRC93_wf0ESszYrFdDPKRqEAmzwU4lrOGorWfQresR-CeO-eHypcn0hB7pfqaYuy3rUoeZ5WMBfjvl3w8VPi4rg0aSv7lOF3wfdfDW55TUk7QWNSRdRSecnBF5u4ueg8f2tXO-uYDUllOCx3wUZn0sZRHFxamcbQ8Fts2HREUalGzMDYzunV8FNhGmvIgL1m-kyuO8bNp7PAYrTTuqTfltGFsIzUQoQARuoi8fqPbBxN8l5tbis3CwiGeyJzD1B_y0pedpNHxIvefCBaS44KSNRogyLthC2p1SacUY3qWuuVe8T7t4Ksxg-hm9yLX43NrhxzrzVGum8YN8Z4-FPLWTH4vcfiIkT_G64mP0AwKphn5r-4GeLJ0&file=YmF4S01ZV2tHMjA0c1B3MXppNEs5YU_9a84c2c4d5.m3u8&referer=https%3A%2F%2Fembedplayer2.xyz%2F": {
+      "kind": "media",
+      "vod": false,
+      "variants": [],
+      "media": [],
+      "segments": 4338,
+      "duration_min": 144.6
+    },
+    "https://cdn2.playercdn.xyz/includes/hls.php?url=vos_LB6ngZKA7xlS6x9AemU6ctnimhhka2_RhmkRVnZcebUuF9dym9X9ZYilbFNeAb_xotlQJ6ebhRuWdZPLe4wlgW7YMNucmlkuP5wp2G_fAgOhCAF6tj3IBvsj1i1tIaPXgr8zo0CXLw7puJwiVZ2FGaDPF8FmaQFYvO3Qi4kjFgp5LdC4XkJ6v_DZ2MPf5ih0rZpcxb9Z7CIhw5rVULiEk4YjWwU3FMRXoBXJjHu03hSo8SzVLoZgAgU76-Zi7POitDTs6o16ijcW4UAoMFNc6p7T2NjgnhtxMTmccAtPaArSPene0WO8EAs0j9eqaC32CAby73wNohZ02fuyfw_ugEozf7395uDWeznvnbu9-N7PE1IvzYrtf2tRCGGzq1cB-crMkGdihNK-2SXeWmUQkyhAp3CkvCgXyq2FVPq_XhBvwceInggDy5KtlvL78WScLp4LEwwzsL2LxEsg2aDeIprgQtV2Qb1hNcLUpEcz9As4F8CWrZKRaqSE3PGnwmo6lV_We075qNpH1K8-05oAXwaF-RdYzch3IhVccGKF2_OAfwtUL0SFq1hDMx92ekh_ZiboSbeFKmX3xtCJp54LBCBwn8CUsJ1oeVh8Jv0&file=YmF4S01ZV2tHMjA0c1B3MXppNEs5YU_a72793519d.m3u8&referer=https%3A%2F%2Fembedplayer2.xyz%2F": {
+      "kind": "media",
+      "vod": false,
+      "variants": [],
+      "media": [],
+      "segments": 4338,
+      "duration_min": 144.6
+    }
+  },
+  "tokens": {},
+  "notas": [
+    "tokens hdnts (Akamai) sao assinados no servidor do provedor com chave secreta;",
+    "nao e possivel gera-los localmente - a renovacao acontece re-buscando a fonte",
+    "apos o cache do provedor expirar (--renew compara automaticamente)."
+  ]
+}
