@@ -95,14 +95,13 @@ export function getPlayer2Url(id: string, type: 'movie' | 'serie', season?: numb
 
 export interface DirectStream { streamUrl: string; referer?: string; kind?: 'hls' | 'dash' | 'mp4' | 'unknown'; }
 export function playbackProxyUrl(streamUrl: string, referer?: string): string {
-  // Player 3 Xtream already returns a backend stream with Range support.
+  // Player 3 extractor returns a backend stream with Range support.
   if (streamUrl.startsWith(`${BACKEND_URL}/functions/v1/xtream-test`)) return streamUrl;
   const base = `${BACKEND_URL}/functions/v1/extract-stream`;
   const params = new URLSearchParams({ proxy: streamUrl });
   if (referer) params.set('referer', referer);
   return `${base}?${params.toString()}`;
 }
-export interface XtreamCredentials { host: string; username: string; password: string; }
 export async function getDirectStreamUrl(id: string, type: 'movie' | 'serie', season: number, episode: number, signal?: AbortSignal): Promise<DirectStream | null> {
   // Player 3: backend extractor (port of get_stream.py) finds the real MP4 (HLS fallback) by TMDB id.
   const response = await fetch(`${BACKEND_URL}/functions/v1/extract-stream`, {
