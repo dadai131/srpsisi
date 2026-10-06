@@ -96,7 +96,6 @@ export function getPlayer2Url(id: string, type: 'movie' | 'serie', season?: numb
 export interface DirectStream { streamUrl: string; referer?: string; kind?: 'hls' | 'dash' | 'mp4' | 'unknown'; }
 export function playbackProxyUrl(streamUrl: string, referer?: string): string {
   // Player 3 extractor returns a backend stream with Range support.
-  if (streamUrl.startsWith(`${BACKEND_URL}/functions/v1/xtream-test`)) return streamUrl;
   const base = `${BACKEND_URL}/functions/v1/extract-stream`;
   const params = new URLSearchParams({ proxy: streamUrl });
   if (referer) params.set('referer', referer);
