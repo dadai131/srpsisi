@@ -48,7 +48,7 @@ export function ContentRow({ title, items, showRank }: ContentRowProps) {
               <div
                 key={item.id + '-' + index}
                 className="flex-shrink-0 cursor-pointer relative snap-start"
-                style={{ width: showRank ? '180px' : '140px' }}
+                style={{ width: showRank ? 'clamp(140px, 40vw, 180px)' : 'clamp(115px, 31vw, 150px)' }}
                 onClick={() => navigate(`/watch/${type}/${item.id}`)}
               >
                 {/* Rank Number */}

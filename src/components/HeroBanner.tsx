@@ -18,7 +18,7 @@ export function HeroBanner({ item }: HeroBannerProps) {
   const type = item.type === 'movie' ? 'movie' : 'serie';
 
   return (
-    <div className="relative w-full h-[50vh] md:h-[65vh] overflow-hidden">
+    <div className="relative w-full h-[58vh] min-h-[380px] max-h-[560px] md:max-h-none md:h-[65vh] overflow-hidden">
       {/* Backdrop Image */}
       <img
         src={backdrop}
