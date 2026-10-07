@@ -17,8 +17,36 @@ export function candidates(source) {
   return type === 'filme' ? [`https://mgeb.top/embed/${id}`, `https://nhdapi.com/embed/movie/${id}`, `https://superflixapi.quest/filme/${id}`] :
     [`https://mgeb.top/embed/${id}/${season}/${episode}`, `https://nhdapi.com/embed/tv/${id}/${season}/${episode}`, `https://superflixapi.quest/serie/${id}/${season}/${episode}`];
 }
-export function extractUrls(html, base) {
-  const text = html.replace(/\\\//g, '/').replace(/\\u002[fF]/g, '/').replace(/\\u0026|&amp;/g, '&');
+// V2 (get_stream_v2.py): decodifica mais escapes sem executar JS.
+export function decodeText(html) {
+  return html.replace(/\\\//g, '/').replace(/\\u002[fF]|\\x2[fF]/g, '/').replace(/\\u003[aA]|\\x3[aA]/g, ':')
+    .replace(/\\u0026|&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'");
+}
+// Host público (sem IP literal / localhost) para seguir iframes como no crawl_embeds do V2.
+export function publicUrl(value) {
+  try {
+    const u = new URL(value);
+    if (u.protocol !== 'https:' || u.username || u.password || (u.port && u.port !== '443')) return false;
+    const h = u.hostname;
+    return h.includes('.') && !/^[\d.]+$/.test(h) && !h.includes(':') && !/(^|\.)(localhost|local|internal)$/i.test(h);
+  } catch { return false; }
+}
+// iframes e páginas de player escondidas em JS (sem .js/.css/imagens).
+export function extractPages(html, base) {
+  const text = decodeText(html);
+  const out = new Set();
+  const add = raw => { try {
+    let u = raw.trim(); if (u.startsWith('//')) u = 'https:' + u;
+    u = new URL(u.replace(/^(https?:\/\/[^/]+)\/(?:\.\.?\/)+/, '$1/'), base).href;
+    if (!/\.(?:js|css|png|jpe?g|gif|svg|webp|ico|woff2?)(?:\?|$)/i.test(u) && publicUrl(u)) out.add(u);
+  } catch { /* ignore */ } };
+  for (const m of text.matchAll(/<iframe[^>]{0,1000}?(?:src|data-src)=['"]([^'"]+)['"]/gi)) add(m[1]);
+  for (const m of text.matchAll(/(?:src|file|url|embed|player)\s*[:=]\s*['"]((?:https?:)?\/\/[^\s'"<>]{4,500})['"]/gi)) add(m[1]);
+  for (const m of text.matchAll(/['"]((?:https?:)?\/\/[^\s'"<>]+\/(?:embed|player|watch|e|v)\/[^\s'"<>]*)['"]/gi)) add(m[1]);
+  return [...out].filter(u => !/\.(?:m3u8|mp4)(?:\?|$)/i.test(u));
+}
+export function extractUrls(html, base, extraAllowed = () => false) {
+  const text = decodeText(html);
   if (/challenges\.cloudflare\.com\/turnstile|cf_embed_challenge|cf-turnstile-response/i.test(text)) return [];
   // Fontes declaradas no player (var sources = [...]): MP4 primeiro, como no get_stream.py.
   const declared = [];
@@ -26,19 +54,19 @@ export function extractUrls(html, base) {
   if (src) { try { for (const s of JSON.parse(src[1])) if (s?.file) declared.push({ file: s.file, mp4: s.type === 'mp4' }); } catch { /* ignore */ } }
   declared.sort((a, b) => Number(b.mp4) - Number(a.mp4));
   const matches = declared.map(d => d.file).concat(text.match(/(?:https?:\/\/|\/\/|\.\.?\/|\/)[^\s"'<>\\]*?\.(?:m3u8|mp4)(?:\?[^\s"'<>\\]*)?/gi) || []);
-  return [...new Set(matches.map(value => new URL(value.replace(/^(https?:\/\/[^/]+)\/(?:\.\.?\/)+/, '$1/'), base).href))].filter(allowedUrl);
+  return [...new Set(matches.map(value => new URL(value.replace(/^(https?:\/\/[^/]+)\/(?:\.\.?\/)+/, '$1/'), base).href))].filter(u => allowedUrl(u) || (publicUrl(u) && extraAllowed(u)));
 }
 export function expiresAt(text) {
   const values = [...text.matchAll(/(?:exp=|expires=)(\d{10,13})/g)].map(m => Number(m[1]) * (m[1].length === 13 ? 1 : 1000));
   return values.length ? Math.min(...values) : undefined;
 }
-export function rewritePlaylist(text, base, wrap) {
+export function rewritePlaylist(text, base, wrap, isAllowed = allowedUrl) {
   return text.split(/\r?\n/).map(line => {
     const value = line.trim();
     if (!value) return line;
     const resolve = uri => {
       const absolute = new URL(uri, base).href;
-      if (!allowedUrl(absolute)) throw new Error('Unsupported media host');
+      if (!isAllowed(absolute)) throw new Error('Unsupported media host');
       return wrap(absolute);
     };
     return value.startsWith('#') ? line.replace(/URI="([^"]+)"/g, (_, uri) => `URI="${resolve(uri)}"`) : resolve(value);
