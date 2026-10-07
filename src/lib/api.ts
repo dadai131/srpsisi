@@ -68,7 +68,7 @@ export async function fetchContent(category: ContentType = 'all', query?: string
     const all = [...map(movies,'movie','movies_trending'), ...map(popularMovies,'movie','movies_popular'), ...map(topMovies,'movie','movies_top'), ...map(upcoming,'movie','movies_upcoming'), ...map(nowPlaying,'movie','nowplaying'), ...map(series,'serie','series_trending'), ...map(popularSeries,'serie','series_popular'), ...map(topSeries,'serie','series_top'), ...map(todaySeries,'serie','series_today'), ...map(anime,'anime','anime'), ...map(animeTop,'anime','anime_top'), ...map(animeRecent,'anime','anime_recent'), ...map(animeToday,'anime','anime_today'), ...map(dorama,'dorama','dorama'), ...map(doramaTop,'dorama','dorama_top'), ...map(doramaRecent,'dorama','dorama_recent')];
     // Remove duplicados dentro da mesma seção
     const seen = new Set<string>();
-    return all.filter(item => { const k = `${item._section}-${item.type}-${item.id}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    return all.filter(item => { const k = `${(item as any)._section}-${item.type}-${item.id}`; if (seen.has(k)) return false; seen.add(k); return true; });
   } catch { return []; }
 }
 
