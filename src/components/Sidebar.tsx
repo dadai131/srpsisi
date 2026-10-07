@@ -51,19 +51,19 @@ export function Sidebar({ activeCategory, onCategoryChange }: SidebarProps) {
 
   if (isMobile) {
     return (
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-lg border-t border-border/50 flex items-center justify-around px-1" style={{ height: 'calc(3rem + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-lg border-t border-border/50 flex items-stretch justify-around" style={{ height: 'calc(4rem + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {sidebarItems.map((item) => {
           const isActive = isItemActive(item);
           return (
             <button
               key={item.label}
               onClick={() => handleClick(item)}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-lg transition-colors ${
+              className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1 transition-colors ${
                 isActive ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
-              <item.icon className="w-4 h-4" />
-              <span className="text-[8px] font-semibold whitespace-nowrap">{item.label}</span>
+              <item.icon className="w-6 h-6" />
+              <span className="text-[10px] font-semibold truncate max-w-full">{item.label}</span>
             </button>
           );
         })}

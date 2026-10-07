@@ -4,6 +4,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Database } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { PlayerControls } from '@/components/PlayerControls';
 import { HlsPlayer } from '@/components/HlsPlayer';
+import { EpisodePicker } from '@/components/EpisodePicker';
 import { PlayerTheme } from '@/types/content';
 import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl, playbackProxyUrl, DirectStream, getDirectStreamUrl } from '@/lib/api';
 
@@ -129,13 +130,13 @@ const Watch = () => {
       {isSeries && <div className="flex items-center gap-2 text-sm"><span className="text-muted-foreground">T{season} E{episode}</span></div>}
     </div></div></header>
 
-    <main className="pt-14"><div className="max-w-6xl mx-auto px-4 py-6">
-      <div className="flex items-center gap-2 mb-3">
-        <button onClick={() => { setActivePlayer(1); setStreamFailed(false); }} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 1 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 1</button>
-        <button onClick={() => { setActivePlayer(3); setStreamFailed(false); }} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 3 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 3 • Loki Player</button>
+    <main className="pt-14"><div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
+      <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 mb-3">
+        <button onClick={() => { setActivePlayer(1); setStreamFailed(false); }} className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 1 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 1</button>
+        <button onClick={() => { setActivePlayer(3); setStreamFailed(false); }} className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 3 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 3 • Loki</button>
       </div>
 
-      <div className="relative w-full bg-card rounded-lg overflow-hidden shadow-2xl mb-6" style={{ paddingBottom: '56.25%', minHeight: '400px' }}>
+      <div className="relative w-full aspect-video sm:min-h-[400px] bg-card rounded-lg overflow-hidden shadow-2xl mb-5">
         {invalidContent ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><p className="text-sm text-muted-foreground">O link acessado não é válido (ID: {rawId}).</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>
         : activePlayer === 3 && loadingStream ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /><p className="text-xs text-muted-foreground">Carregando Player 3...</p></div>
         : activePlayer === 3 && streamFailed ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Player 3 indisponível</p><p className="text-sm text-muted-foreground">{streamError || 'Não foi possível carregar uma fonte de vídeo. Tente novamente.'}</p><Button variant="default" size="sm" onClick={() => setStreamAttempt(value => value + 1)}>Tentar novamente</Button><Button variant="secondary" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button></div>
@@ -150,15 +151,15 @@ const Watch = () => {
         : <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>}
       </div>
 
-      {isSeries && <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <Button variant="secondary" onClick={handlePrevEpisode} disabled={season === 1 && episode === 1}><ChevronLeft className="w-4 h-4 mr-2" />Anterior</Button>
-        <div className="flex items-center gap-4 flex-wrap">{loadingSeasons ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : <>
-          <div className="flex items-center gap-2"><label className="text-sm text-muted-foreground">Temporada:</label><select value={season} onChange={e => { setSeason(Number(e.target.value)); setEpisode(1); }} className="bg-secondary text-foreground px-3 py-1 rounded-md border border-border">{seasons.map(s => <option key={s.season_number} value={s.season_number}>{s.season_number}</option>)}</select></div>
-          <div className="flex items-center gap-2"><label className="text-sm text-muted-foreground">Episódio:</label><select value={episode} onChange={e => setEpisode(Number(e.target.value))} className="bg-secondary text-foreground px-3 py-1 rounded-md border border-border">{Array.from({length: episodeCount}, (_,i) => i+1).map(e => <option key={e} value={e}>{e}</option>)}</select></div>
-          {seasonSource && <div className="flex items-center gap-1 text-xs text-muted-foreground bg-secondary/50 px-2 py-1 rounded"><Database className="w-3 h-3" /><span>{seasonSource}</span></div>}
-        </>}</div>
-        <Button variant="secondary" onClick={handleNextEpisode} disabled={isLastEpisode()}>Próximo<ChevronRight className="w-4 h-4 ml-2" /></Button>
-      </div>}
+      {isSeries && <>
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <Button variant="secondary" className="h-12 text-base" onClick={handlePrevEpisode} disabled={season === 1 && episode === 1}><ChevronLeft className="w-5 h-5 mr-1" />Anterior</Button>
+          <Button variant="secondary" className="h-12 text-base" onClick={handleNextEpisode} disabled={isLastEpisode()}>Próximo<ChevronRight className="w-5 h-5 ml-1" /></Button>
+        </div>
+        {loadingSeasons ? <div className="flex justify-center py-6"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+          : <EpisodePicker id={id} seasons={seasons} season={season} episode={episode} episodeCount={episodeCount} onSeason={s => { setSeason(s); setEpisode(1); }} onEpisode={setEpisode} />}
+        {seasonSource && <div className="flex items-center gap-1 text-xs text-muted-foreground mb-4"><Database className="w-3 h-3" /><span>{seasonSource}</span></div>}
+      </>}
       {activePlayer === 1 && <PlayerControls theme={theme} onThemeChange={setTheme} />}
     </div></main>
   </div>;
