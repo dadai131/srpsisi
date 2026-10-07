@@ -64,11 +64,11 @@ export async function fetchContent(category: ContentType = 'all', query?: string
   try {
     if (query) { const res = await fetch(tmdbUrl('/search/multi', `language=pt-BR&query=${encodeURIComponent(query)}`)); if (!res.ok) return []; const data = await res.json(); return (data.results || []).filter((r: any) => r.media_type === 'movie' || r.media_type === 'tv').map((r: any) => tmdbToContentItem(r, r.media_type === 'movie' ? 'movie' : 'serie')); }
     const [movies, popularMovies, topMovies, upcoming, series, popularSeries, topSeries, todaySeries, anime, animeTop, animeRecent, animeToday, dorama, doramaTop, doramaRecent, nowPlaying] = await Promise.all([fetchTmdbTrending('movie'), fetchTmdbPopular('movie'), fetchTmdbTopRatedMovies(), fetchTmdbUpcomingMovies(), fetchTmdbTrending('tv'), fetchTmdbPopular('tv'), fetchTmdbTopRatedSeries(), fetchTmdbSeriesAiringToday(), fetchTmdbAnime(), fetchTmdbAnime('vote_average.desc&vote_count.gte=200'), fetchTmdbAnimeRecent(), fetchTmdbAnimeAiringToday(), fetchTmdbDorama(), fetchTmdbDorama('vote_average.desc&vote_count.gte=100'), fetchTmdbDoramaRecent(), fetchTmdbNowPlaying()]);
-    const map = (xs: TmdbResult[], type: ContentType) => xs.map(x => tmdbToContentItem(x, type));
-    const all = [...map(movies,'movie'), ...map(popularMovies,'movie'), ...map(topMovies,'movie'), ...map(upcoming,'movie'), ...map(nowPlaying,'movie'), ...map(series,'serie'), ...map(popularSeries,'serie'), ...map(topSeries,'serie'), ...map(todaySeries,'serie'), ...map(anime,'anime'), ...map(animeTop,'anime'), ...map(animeRecent,'anime'), ...map(animeToday,'anime'), ...map(dorama,'dorama'), ...map(doramaTop,'dorama'), ...map(doramaRecent,'dorama')];
-    // Remove duplicados (mesmo item aparece em trending/popular/top) para evitar keys repetidas no React
+    const map = (xs: TmdbResult[], type: ContentType, section: string) => xs.map(x => ({ ...tmdbToContentItem(x, type), _section: section }));
+    const all = [...map(movies,'movie','movies_trending'), ...map(popularMovies,'movie','movies_popular'), ...map(topMovies,'movie','movies_top'), ...map(upcoming,'movie','movies_upcoming'), ...map(nowPlaying,'movie','nowplaying'), ...map(series,'serie','series_trending'), ...map(popularSeries,'serie','series_popular'), ...map(topSeries,'serie','series_top'), ...map(todaySeries,'serie','series_today'), ...map(anime,'anime','anime'), ...map(animeTop,'anime','anime_top'), ...map(animeRecent,'anime','anime_recent'), ...map(animeToday,'anime','anime_today'), ...map(dorama,'dorama','dorama'), ...map(doramaTop,'dorama','dorama_top'), ...map(doramaRecent,'dorama','dorama_recent')];
+    // Remove duplicados dentro da mesma seção
     const seen = new Set<string>();
-    return all.filter(item => { const k = `${item.type}-${item.id}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    return all.filter(item => { const k = `${item._section}-${item.type}-${item.id}`; if (seen.has(k)) return false; seen.add(k); return true; });
   } catch { return []; }
 }
 

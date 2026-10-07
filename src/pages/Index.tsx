@@ -40,24 +40,53 @@ const Index = () => {
   };
 
   // Split content into sections
-  const movies = content.filter(c => c.type === 'movie' && !(c as any)._section);
-  const nowPlaying = content.filter(c => (c as any)._section === 'nowplaying');
-  const moviesPopular = content.filter(c => (c as any)._section === 'movies_popular');
-  const moviesTopRated = content.filter(c => (c as any)._section === 'movies_top');
-  const moviesUpcoming = content.filter(c => (c as any)._section === 'movies_upcoming');
-  const series = content.filter(c => c.type === 'serie' && !(c as any)._section);
-  const seriesPopular = content.filter(c => (c as any)._section === 'series_popular');
-  const seriesTopRated = content.filter(c => (c as any)._section === 'series_top');
-  const seriesToday = content.filter(c => (c as any)._section === 'series_today');
-  const animes = content.filter(c => c.type === 'anime' && !(c as any)._section);
-  const animesTopRated = content.filter(c => (c as any)._section === 'anime_top');
-  const animesRecent = content.filter(c => (c as any)._section === 'anime_recent');
-  const animesToday = content.filter(c => (c as any)._section === 'anime_today');
-  const doramas = content.filter(c => c.type === 'dorama' && !(c as any)._section);
-  const doramasTopRated = content.filter(c => (c as any)._section === 'dorama_top');
-  const doramasRecent = content.filter(c => (c as any)._section === 'dorama_recent');
+  const sec = (s: string) => content.filter(c => (c as any)._section === s);
+  const moviesTrending = sec('movies_trending');
+  const nowPlaying = sec('nowplaying');
+  const moviesPopular = sec('movies_popular');
+  const moviesTopRated = sec('movies_top');
+  const seriesTrending = sec('series_trending');
+  const seriesPopular = sec('series_popular');
+  const seriesTopRated = sec('series_top');
+  const seriesToday = sec('series_today');
+  const seriesNew = seriesToday.length ? seriesToday : seriesPopular.slice(10);
+  const animes = sec('anime');
+  const animesTopRated = sec('anime_top');
+  const animesRecent = sec('anime_recent');
+  const animesToday = sec('anime_today');
+  const doramas = sec('dorama');
+  const doramasTopRated = sec('dorama_top');
+  const doramasRecent = sec('dorama_recent');
 
-  const featuredItem = content.length > 0 ? content[0] : null;
+  const movieRows = [
+    { id: 'f-alta', pill: '🔥 Filmes em Alta', title: '🔥 Filmes em Alta', items: moviesTrending },
+    { id: 'f-top', pill: '🏆 Top Filmes', title: '🏆 Top 10 Filmes', items: moviesPopular.slice(0, 10), rank: true },
+    { id: 'f-mais', pill: '👀 Mais Assistidos', title: '👀 Filmes Mais Assistidos', items: moviesPopular },
+    { id: 'f-lanc', pill: '🆕 Lançamentos', title: '🆕 Lançamentos', items: nowPlaying },
+    { id: 'f-aval', pill: '⭐ Avaliados', title: '⭐ Filmes Mais Bem Avaliados', items: moviesTopRated },
+  ];
+  const seriesRows = [
+    { id: 's-alta', pill: '🔥 Séries em Alta', title: '🔥 Séries em Alta', items: seriesTrending },
+    { id: 's-top', pill: '🏆 Top Séries', title: '🏆 Top 10 Séries', items: seriesPopular.slice(0, 10), rank: true },
+    { id: 's-mais', pill: '👀 Mais Assistidas', title: '👀 Séries Mais Assistidas', items: seriesPopular },
+    { id: 's-novas', pill: '🆕 Novas', title: '🆕 Novas Séries', items: seriesNew },
+    { id: 's-aval', pill: '⭐ Avaliadas', title: '⭐ Séries Mais Bem Avaliadas', items: seriesTopRated },
+  ];
+  const goTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const Pills = ({ rows }: { rows: typeof movieRows }) => (
+    <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-2 pb-4 mb-2">
+      {rows.filter(r => r.items.length).map(r => (
+        <button key={r.id} onClick={() => goTo(r.id)} className="flex-shrink-0 min-h-[40px] px-4 rounded-full bg-secondary text-foreground text-sm font-semibold border border-border/50 active:bg-primary active:text-primary-foreground hover:bg-accent transition-colors">{r.pill}</button>
+      ))}
+    </div>
+  );
+  const Rows = ({ rows }: { rows: typeof movieRows }) => <>{rows.map(r => r.items.length > 0 && (
+    <div key={r.id} id={r.id} className="scroll-mt-20"><ContentRow title={r.title} items={r.items} showRank={r.rank} /></div>
+  ))}</>;
+  const showMovies = activeCategory === 'all' || activeCategory === 'movie';
+  const showSeries = activeCategory === 'all' || activeCategory === 'serie';
+
+  const featuredItem = moviesTrending[0] || content[0] || null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -88,36 +117,16 @@ const Index = () => {
             )
           ) : (
             <>
-              {/* FILMES */}
-              {nowPlaying.length > 0 && (
-                <ContentRow title="🎬 Nos Cinemas Agora" items={nowPlaying.slice(0, 10)} showRank />
-              )}
-              {movies.length > 0 && (
-                <ContentRow title="🔥 Top 10 Filmes da Semana" items={movies.slice(0, 10)} showRank />
-              )}
-              {moviesPopular.length > 0 && (
-                <ContentRow title="🎥 Filmes Populares" items={moviesPopular} />
-              )}
-              {moviesTopRated.length > 0 && (
-                <ContentRow title="⭐ Filmes Mais Bem Avaliados" items={moviesTopRated} />
-              )}
-              {moviesUpcoming.length > 0 && (
-                <ContentRow title="📅 Em Breve nos Cinemas" items={moviesUpcoming} />
-              )}
-
-              {/* SÉRIES */}
-              {series.length > 0 && (
-                <ContentRow title="🔥 Top 10 Séries da Semana" items={series.slice(0, 10)} showRank />
-              )}
-              {seriesToday.length > 0 && (
-                <ContentRow title="📺 Séries Lançadas Hoje" items={seriesToday} />
-              )}
-              {seriesPopular.length > 0 && (
-                <ContentRow title="🎬 Séries Populares" items={seriesPopular} />
-              )}
-              {seriesTopRated.length > 0 && (
-                <ContentRow title="⭐ Séries Mais Bem Avaliadas" items={seriesTopRated} />
-              )}
+              {showMovies && <section className="mb-4">
+                <h2 className="text-xl font-extrabold text-foreground px-2 mb-3">🎬 FILMES</h2>
+                <Pills rows={movieRows} />
+                <Rows rows={movieRows} />
+              </section>}
+              {showSeries && <section className="mb-4">
+                <h2 className="text-xl font-extrabold text-foreground px-2 mb-3">📺 SÉRIES</h2>
+                <Pills rows={seriesRows} />
+                <Rows rows={seriesRows} />
+              </section>}
 
               {/* ANIMES */}
               {animesToday.length > 0 && (
