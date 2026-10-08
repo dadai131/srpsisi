@@ -118,7 +118,7 @@ const Watch = () => {
   const rawPlayerUrl = id ? getPlayerUrl(id, isSeries ? 'serie' : 'movie', isSeries ? season : undefined, isSeries ? episode : undefined, theme, 1) : '';
   const playerUrl = isAllowedPlayerUrl(rawPlayerUrl) ? rawPlayerUrl : '';
   const invalidContent = !id;
-  const playbackSrc = directStream ? playbackProxyUrl(directStream.streamUrl, directStream.referer) : null;
+  const playbackSrc = directStream ? playbackProxyUrl(directStream.streamUrl, directStream.referer, directStream.sig) : null;
 
   const handlePrevEpisode = () => { if (episode > 1) setEpisode(episode - 1); else if (season > 1) { const prev = seasons.find(s => s.season_number === season - 1); setSeason(season - 1); setEpisode(prev?.episode_count || 1); } };
   const handleNextEpisode = () => { const current = seasons.find(s => s.season_number === season); if (current && episode < current.episode_count) setEpisode(episode + 1); else { const next = seasons.find(s => s.season_number === season + 1); if (next) { setSeason(season + 1); setEpisode(1); } } };
