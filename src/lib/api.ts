@@ -93,12 +93,13 @@ export function getPlayer2Url(id: string, type: 'movie' | 'serie', season?: numb
     : `https://mgeb.top/embed/${id}/${season || 1}/${episode || 1}`;
 }
 
-export interface DirectStream { streamUrl: string; referer?: string; kind?: 'hls' | 'dash' | 'mp4' | 'unknown'; }
-export function playbackProxyUrl(streamUrl: string, referer?: string): string {
+export interface DirectStream { streamUrl: string; referer?: string; kind?: 'hls' | 'dash' | 'mp4' | 'unknown'; sig?: string; }
+export function playbackProxyUrl(streamUrl: string, referer?: string, sig?: string): string {
   // Player 3 extractor returns a backend stream with Range support.
   const base = `${BACKEND_URL}/functions/v1/extract-stream`;
   const params = new URLSearchParams({ proxy: streamUrl });
   if (referer) params.set('referer', referer);
+  if (sig) params.set('sig', sig);
   return `${base}?${params.toString()}`;
 }
 export async function getDirectStreamUrl(id: string, type: 'movie' | 'serie', season: number, episode: number, signal?: AbortSignal): Promise<DirectStream | null> {

@@ -1,5 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { allowedUrl, candidates, extractUrls, expiresAt, rewritePlaylist } from './resolver.js';
+import { allowedUrl, publicUrl, candidates, extractUrls, extractPages, expiresAt, rewritePlaylist } from './resolver.js';
+
+// Assinatura HMAC: só URLs encontradas pelo próprio extrator podem passar pelo proxy fora da allowlist.
+const SIGN_KEY = (globalThis as any).Deno?.env?.get('SUPABASE_SERVICE_ROLE_KEY') || 'loki-player3';
+let keyPromise: Promise<CryptoKey> | null = null;
+async function sign(url: string) {
+  keyPromise ??= crypto.subtle.importKey('raw', new TextEncoder().encode(SIGN_KEY), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', await keyPromise, new TextEncoder().encode(url)));
+  return [...mac.slice(0, 16)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,9 +23,9 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 });
 
 // Check every redirect; this public endpoint must not become an arbitrary URL proxy.
-async function upstream(url: string, referer: string, range?: string | null) {
+async function upstream(url: string, referer: string, range?: string | null, allow: (u: string) => boolean = allowedUrl) {
   for (let hop = 0; hop < 5; hop++) {
-    if (!allowedUrl(url)) throw new Error('Unsupported upstream host');
+    if (!allow(url)) throw new Error('Unsupported upstream host');
     const response = await fetch(url, {
       redirect: 'manual', signal: AbortSignal.timeout(8000),
       headers: { 'User-Agent': UA, Referer: referer, Origin: new URL(referer).origin,
@@ -50,46 +59,69 @@ async function readText(response: Response) {
   } finally { await reader.cancel(); }
 }
 async function extract(source: string) {
-  for (const page of candidates(source)) {
+  // V2: segue iframes/páginas de player (crawl_embeds) até 3 níveis, sem executar JS.
+  const queue: [string, number][] = candidates(source).map(u => [u, 1]);
+  const visited = new Set<string>();
+  const trusted = new Set<string>(); // hosts descobertos neste crawl
+  const isTrusted = (u: string) => { try { return trusted.has(new URL(u).hostname); } catch { return false; } };
+  const deadline = Date.now() + 40000;
+  while (queue.length && visited.size < 15 && Date.now() < deadline) {
+    const [page, depth] = queue.shift()!;
+    if (visited.has(page)) continue;
+    visited.add(page);
     try {
-      const loaded = await upstream(page, REFERER);
+      const loaded = await upstream(page, depth === 1 ? REFERER : page, null, u => allowedUrl(u) || publicUrl(u));
       if (!loaded.response.ok) { await loaded.response.body?.cancel(); continue; }
       const html = await readText(loaded.response);
-      for (const stream of extractUrls(html, loaded.url).slice(0, 8)) {
+      trusted.add(new URL(loaded.url).hostname);
+      const referer = depth === 1 ? REFERER : loaded.url;
+      for (const stream of extractUrls(html, loaded.url, isTrusted).slice(0, 8)) {
         try {
           const kind = /\.m3u8/i.test(stream) ? 'hls' : 'mp4';
-          const media = await upstream(stream, REFERER, kind === 'mp4' ? 'bytes=0-4095' : null);
+          const allow = (u: string) => allowedUrl(u) || publicUrl(u);
+          const media = await upstream(stream, referer, kind === 'mp4' ? 'bytes=0-4095' : null, allow);
           if (!media.response.ok) { await media.response.body?.cancel(); continue; }
           let expiry = expiresAt(stream);
           if (kind === 'hls') {
             const playlist = await readText(media.response);
             if (!playlist.trimStart().startsWith('#EXTM3U')) continue;
             expiry = expiresAt(playlist) ?? expiry;
-            // Validate nested hosts before returning an unusable playlist.
-            rewritePlaylist(playlist, media.url, (url: string) => url);
           } else {
             const ct = media.response.headers.get('content-type') || '';
             await media.response.body?.cancel();
             if (/html|json/i.test(ct)) continue;
           }
           if (expiry && expiry <= Date.now()) continue;
-          return { streamUrl: kind === 'mp4' ? stream : media.url, kind, referer: REFERER, expiresAt: expiry, source: new URL(page).hostname };
+          const streamUrl = kind === 'mp4' ? stream : media.url;
+          return { streamUrl, kind, referer, expiresAt: expiry, source: new URL(page).hostname,
+            ...(allowedUrl(streamUrl) ? {} : { sig: await sign(streamUrl) }) };
         } catch { /* Try next stream. */ }
       }
-    } catch { /* Try next provider, including on timeout. */ }
+      if (depth < 3) for (const next of extractPages(html, loaded.url)) if (!visited.has(next)) queue.push([next, depth + 1]);
+    } catch { /* Try next page, including on timeout. */ }
   }
   return null;
 }
 async function proxy(target: string, req: Request) {
-  if (!allowedUrl(target)) return json({ error: 'URL de mídia não permitida' }, 400);
-  const { response, url } = await upstream(target, REFERER, req.headers.get('range'));
+  const params = new URL(req.url).searchParams;
+  const signed = publicUrl(target) && params.get('sig') === await sign(target);
+  if (!allowedUrl(target) && !signed) return json({ error: 'URL de mídia não permitida' }, 400);
+  const ref = params.get('referer');
+  const referer = ref && publicUrl(ref) ? ref : REFERER;
+  const allow = (u: string) => allowedUrl(u) || (signed && publicUrl(u));
+  const { response, url } = await upstream(target, referer, req.headers.get('range'), allow);
   if (!response.ok) { await response.body?.cancel(); return json({ error: 'Fonte indisponível' }, response.status); }
   const ct = response.headers.get('content-type') || '';
   if (/mpegurl/i.test(ct) || /\.m3u8/i.test(url)) {
     const body = await readText(response);
     if (!body.trimStart().startsWith('#EXTM3U')) return json({ error: 'Playlist inválida' }, 502);
     const endpoint = new URL(req.url); endpoint.search = '';
-    const rewritten = rewritePlaylist(body, url, (uri: string) => `${endpoint}?proxy=${encodeURIComponent(uri)}`);
+    const lines = body.split(/\r?\n/);
+    const sigs = new Map<string, string>();
+    rewritePlaylist(body, url, (uri: string) => { if (!allowedUrl(uri)) sigs.set(uri, ''); return uri; }, allow);
+    for (const uri of sigs.keys()) sigs.set(uri, await sign(uri));
+    const refQs = referer !== REFERER ? `&referer=${encodeURIComponent(referer)}` : '';
+    const rewritten = rewritePlaylist(lines.join('\n'), url, (uri: string) => `${endpoint}?proxy=${encodeURIComponent(uri)}${sigs.has(uri) ? `&sig=${sigs.get(uri)}` : ''}${refQs}`, allow);
     return new Response(rewritten, { headers: { ...corsHeaders, 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'no-store' } });
   }
   const headers = new Headers(corsHeaders);
