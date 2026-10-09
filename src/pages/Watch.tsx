@@ -4,6 +4,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Database } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { PlayerControls } from '@/components/PlayerControls';
 import { HlsPlayer } from '@/components/HlsPlayer';
+import { PLAYER3_SOURCES, buildEmbedUrl } from '@/lib/player3Sources.js';
 import { EpisodePicker } from '@/components/EpisodePicker';
 import { PlayerTheme } from '@/types/content';
 import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl, playbackProxyUrl, DirectStream, getDirectStreamUrl } from '@/lib/api';
@@ -72,38 +73,16 @@ const Watch = () => {
   }, [season, episode, seasons, activePlayer]);
 
 
-  // Player 3: resolve fresh media URLs through the backend.
+  // Player 3: direct browser connection to configured embed providers.
+  // No backend resolution, proxy or cross-origin iframe inspection.
+  const [player3Source, setPlayer3Source] = useState('mgeb');
+  const [player3LoadError, setPlayer3LoadError] = useState(false);
+  const player3EmbedUrl = id ? buildEmbedUrl(player3Source, id, isSeries ? 'serie' : 'movie', season, episode) : null;
   useEffect(() => {
-    if (activePlayer !== 3 || !id) {
-      if (activePlayer !== 3) { setDirectStream(null); setStreamFailed(false); }
-      return;
-    }
-
-    let cancelled = false;
-    const controller = new AbortController();
-    setLoadingStream(true);
+    setPlayer3LoadError(false);
     setStreamFailed(false);
     setStreamError('');
-    setDirectStream(null);
-
-    getDirectStreamUrl(id, isSeries ? 'serie' : 'movie', season, episode, controller.signal)
-      .then(data => {
-        if (cancelled) return;
-        if (!data || !data.streamUrl) throw new Error('Fonte de vídeo não encontrada');
-        setDirectStream(data);
-      })
-      .catch(error => {
-        if (!cancelled) {
-          console.error('Player 3 Error:', error);
-          setDirectStream(null);
-          setStreamError(error instanceof Error ? error.message : 'Falha desconhecida no Player 3');
-          setStreamFailed(true);
-        }
-      })
-      .finally(() => { if (!cancelled) setLoadingStream(false); });
-
-    return () => { cancelled = true; controller.abort(); };
-  }, [activePlayer, id, season, episode, isSeries, streamAttempt]);
+  }, [id, season, episode, player3Source]);
 
   useEffect(() => {
     if (!isSeries) return;
@@ -136,11 +115,27 @@ const Watch = () => {
         <button onClick={() => { setActivePlayer(3); setStreamFailed(false); }} className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 3 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 3 • Loki</button>
       </div>
 
+      {activePlayer === 3 && <div className="flex flex-wrap items-center gap-2 mb-3" aria-label="Fontes do Player 3">
+        {PLAYER3_SOURCES.map(source => <Button key={source.id} size="sm" variant={player3Source === source.id ? 'default' : 'secondary'} onClick={() => setPlayer3Source(source.id)}>{source.label}</Button>)}
+        <span className="text-xs text-muted-foreground">Conexão direta do visitante; disponibilidade depende da fonte.</span>
+      </div>}
       <div className="relative w-full aspect-video sm:min-h-[400px] bg-card rounded-lg overflow-hidden shadow-2xl mb-5">
         {invalidContent ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><p className="text-sm text-muted-foreground">O link acessado não é válido (ID: {rawId}).</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>
-        : activePlayer === 3 && loadingStream ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /><p className="text-xs text-muted-foreground">Carregando Player 3...</p></div>
-        : activePlayer === 3 && streamFailed ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Player 3 indisponível</p><p className="text-sm text-muted-foreground">{streamError || 'Não foi possível carregar uma fonte de vídeo. Tente novamente.'}</p><Button variant="default" size="sm" onClick={() => setStreamAttempt(value => value + 1)}>Tentar novamente</Button><Button variant="secondary" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button></div>
-        : activePlayer === 3 && playbackSrc ? <HlsPlayer key={playbackSrc} src={playbackSrc} isHls={directStream?.kind === 'hls'} onFatalError={() => { setDirectStream(null); setStreamError('Player 3 indisponível agora. Tente o Player 1.'); setStreamFailed(true); }} />
+        : activePlayer === 3 && player3EmbedUrl && !player3LoadError ? <iframe
+            key={`p3-${player3Source}-${id}-${season}-${episode}`}
+            src={player3EmbedUrl}
+            title="Player 3 — fonte externa"
+            className="absolute inset-0 w-full h-full border-0"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+            onError={() => setPlayer3LoadError(true)}
+          />
+        : activePlayer === 3 ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center">
+            <p className="text-foreground font-semibold">Fonte do Player 3 indisponível</p>
+            <p className="text-sm text-muted-foreground">A fonte pode bloquear incorporação ou estar fora do ar. Experimente outra fonte.</p>
+            <Button variant="secondary" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button>
+          </div>
         : activePlayer === 1 && iframeError ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center">
             <p className="text-foreground font-semibold">Este conteúdo está bloqueado.</p>
             <p className="text-sm text-muted-foreground">Contacte o proprietário do site para corrigir o problema.</p>
