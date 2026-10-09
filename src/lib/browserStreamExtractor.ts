@@ -25,7 +25,7 @@ const mediaType = (url: string): 'hls' | 'mp4' | null =>
 
 function parseHtml(html: string, base: string) {
   const decoded = decode(html);
-  if (/challenges\\.cloudflare\\.com\\/turnstile|cf_embed_challenge|cf-turnstile-response/i.test(decoded)) return { media: [], pages: [] };
+  if (decoded.includes('challenges.cloudflare.com/turnstile') || decoded.includes('cf_embed_challenge') || decoded.includes('cf-turnstile-response')) return { media: [], pages: [] };
   const media = new Set<string>();
   const pages = new Set<string>();
   const add = (value: string, target: Set<string>) => {
@@ -42,7 +42,7 @@ function parseHtml(html: string, base: string) {
     if (!url) continue;
     (mediaType(url) ? media : pages).add(url);
   }
-  const pagePattern = new RegExp(String.raw`(?:src|file|url|embed|player)\\s*[:=]\\s*['"]((?:https?:)?\\/\\/[^\\s'"<>]{4,500})['"]`, 'gi');
+  const pagePattern = /(?:src|file|url|embed|player)\s*[:=]\s*['"]((?:https?:)?\/\/[^\s'"<>]{4,500})['"]/gi;
   for (const m of decoded.matchAll(pagePattern)) {
     const url = safeUrl(m[1], base);
     if (url) (mediaType(url) ? media : pages).add(url);
@@ -77,7 +77,7 @@ export async function extractStreamInBrowser(
       const kind = /mpegurl/i.test(ct) ? 'hls' : mediaType(url);
       if (kind) return { stream: { streamUrl: url, kind, source: next.url }, blockedByCors, visited: visited.size };
     }
-    if (!/html|text\\/plain|javascript|json/i.test(ct)) continue;
+    if (!['html', 'text/plain', 'javascript', 'json'].some(kind => ct.includes(kind))) continue;
     const html = (await response.text()).slice(0, 1_500_000);
     const { media, pages } = parseHtml(html, response.url || next.url);
     // The browser player checks playback of candidate URLs itself; avoid
