@@ -14,9 +14,9 @@ export function candidates(source) {
   const m = u.pathname.match(/^\/(filme|serie)\/(\d{1,12})(?:\/(\d{1,4})\/(\d{1,4}))?\/?$/);
   if (!m || (m[1] === 'filme' && m[3]) || m[3] === '0' || m[4] === '0') throw new Error('Invalid content');
   const [, type, id, season = '1', episode = '1'] = m;
-  // Ordem fixa: 1º mgeb, 2º Superflix, 3º EmbedPlay, 4º nhdapi. O primeiro que achar vídeo encerra a busca.
-  return type === 'filme' ? [`https://mgeb.top/embed/${id}`, `https://superflixapi.quest/filme/${id}`, `https://www.embedplay.one/filme/${id}`, `https://nhdapi.com/embed/movie/${id}`] :
-    [`https://mgeb.top/embed/${id}/${season}/${episode}`, `https://superflixapi.quest/serie/${id}/${season}/${episode}`, `https://www.embedplay.one/serie/${id}/${season}/${episode}`, `https://nhdapi.com/embed/tv/${id}/${season}/${episode}`];
+  // V2: mgeb, nhdapi e Superflix; extrair playlists HLS e seguir embeds sem executar JS.
+  return type === 'filme' ? [`https://mgeb.top/embed/${id}`, `https://nhdapi.com/embed/movie/${id}`, `https://superflixapi.quest/filme/${id}`] :
+    [`https://mgeb.top/embed/${id}/${season}/${episode}`, `https://nhdapi.com/embed/tv/${id}/${season}/${episode}`, `https://superflixapi.quest/serie/${id}/${season}/${episode}`];
 }
 // V2 (get_stream_v2.py): decodifica mais escapes sem executar JS.
 export function decodeText(html) {
@@ -50,13 +50,13 @@ export function extractPages(html, base) {
 export function extractUrls(html, base, extraAllowed = () => false) {
   const text = decodeText(html);
   if (/challenges\.cloudflare\.com\/turnstile|cf_embed_challenge|cf-turnstile-response/i.test(text)) return [];
-  // Fontes declaradas no player (var sources = [...]): MP4 primeiro, como no get_stream.py.
+  // V2: descobrir playlists HLS e MP4, incluindo URLs declaradas no HTML.
   const declared = [];
   const src = text.match(/var\s+sources\s*=\s*(\[[\s\S]*?\]);/);
   if (src) { try { for (const s of JSON.parse(src[1])) if (s?.file) declared.push({ file: s.file, mp4: s.type === 'mp4' }); } catch { /* ignore */ } }
-  declared.sort((a, b) => Number(b.mp4) - Number(a.mp4));
+  declared.sort((a, b) => Number(a.mp4) - Number(b.mp4));
   const matches = declared.map(d => d.file).concat(text.match(/(?:https?:\/\/|\/\/|\.\.?\/|\/)[^\s"'<>\\]*?\.(?:m3u8|mp4)(?:\?[^\s"'<>\\]*)?/gi) || []);
-  return [...new Set(matches.map(value => new URL(value.replace(/^(https?:\/\/[^/]+)\/(?:\.\.?\/)+/, '$1/'), base).href))].filter(u => allowedUrl(u) || (publicUrl(u) && extraAllowed(u)));
+  return [...new Set(matches.map(value => { try { const normalized = value.startsWith('//') ? 'https:' + value : value; return new URL(normalized.replace(/^(https?:\/\/[^/]+)\/(?:\.\.?\/)+/, '$1/'), base).href; } catch { return null; } }).filter(Boolean))].filter(u => allowedUrl(u) || (publicUrl(u) && extraAllowed(u))).sort((a, b) => Number(/\.m3u8(?:[?#]|$)/i.test(b)) - Number(/\.m3u8(?:[?#]|$)/i.test(a)));
 }
 export function expiresAt(text) {
   const values = [...text.matchAll(/(?:exp=|expires=)(\d{10,13})/g)].map(m => Number(m[1]) * (m[1].length === 13 ? 1 : 1000));
