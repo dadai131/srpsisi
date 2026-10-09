@@ -32,7 +32,7 @@ function parseHtml(html: string, base: string) {
     const url = safeUrl(value, base);
     if (url) target.add(url);
   };
-  const mediaPattern = new RegExp(String.raw`(?:https?:\\/\\/|\\/\\/|\\.\\.?\\/|\\/)[^\\s"'<>\\\\]*?\\.(?:m3u8|mp4)(?:\\?[^\\s"'<>\\\\]*)?`, 'gi');
+  const mediaPattern = new RegExp(String.raw`(?:https?:\\/\\/|\\/\\/|\\.\\.?\\/|\\/)[^\\s"'<>\]*?\\.(?:m3u8|mp4)(?:\\?[^\\s"'<>\]*)?`, 'gi');
   for (const m of decoded.matchAll(mediaPattern)) add(m[0], media);
   const doc = new DOMParser().parseFromString(decoded, 'text/html');
   for (const el of Array.from(doc.querySelectorAll('iframe[src], iframe[data-src], video[src], source[src]'))) {
