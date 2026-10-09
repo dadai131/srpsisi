@@ -3,11 +3,10 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PlayerControls } from '@/components/PlayerControls';
-import { HlsPlayer } from '@/components/HlsPlayer';
 import { PLAYER3_SOURCES, buildEmbedUrl } from '@/lib/player3Sources.js';
 import { EpisodePicker } from '@/components/EpisodePicker';
 import { PlayerTheme } from '@/types/content';
-import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl, playbackProxyUrl, DirectStream, getDirectStreamUrl } from '@/lib/api';
+import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl } from '@/lib/api';
 
 const Watch = () => {
   const { type, id: rawId } = useParams<{ type: string; id: string }>();
@@ -24,11 +23,6 @@ const Watch = () => {
   const [iframeLoading, setIframeLoading] = useState(false);
   const [iframeError, setIframeError] = useState(false);
   const iframeLoadedRef = useRef(false);
-  const [directStream, setDirectStream] = useState<DirectStream | null>(null);
-  const [loadingStream, setLoadingStream] = useState(false);
-  const [streamFailed, setStreamFailed] = useState(false);
-  const [streamError, setStreamError] = useState('');
-  const [streamAttempt, setStreamAttempt] = useState(0);
   const [theme, setTheme] = useState<PlayerTheme>({ color: 'e50914', transparent: false, noEpList: false });
   const isSeries = type === 'serie' || type === 'anime' || type === 'dorama';
 
@@ -80,8 +74,6 @@ const Watch = () => {
   const player3EmbedUrl = id ? buildEmbedUrl(player3Source, id, isSeries ? 'serie' : 'movie', season, episode) : null;
   useEffect(() => {
     setPlayer3LoadError(false);
-    setStreamFailed(false);
-    setStreamError('');
   }, [id, season, episode, player3Source]);
 
   useEffect(() => {
@@ -97,7 +89,6 @@ const Watch = () => {
   const rawPlayerUrl = id ? getPlayerUrl(id, isSeries ? 'serie' : 'movie', isSeries ? season : undefined, isSeries ? episode : undefined, theme, 1) : '';
   const playerUrl = isAllowedPlayerUrl(rawPlayerUrl) ? rawPlayerUrl : '';
   const invalidContent = !id;
-  const playbackSrc = directStream ? playbackProxyUrl(directStream.streamUrl, directStream.referer, directStream.sig) : null;
 
   const handlePrevEpisode = () => { if (episode > 1) setEpisode(episode - 1); else if (season > 1) { const prev = seasons.find(s => s.season_number === season - 1); setSeason(season - 1); setEpisode(prev?.episode_count || 1); } };
   const handleNextEpisode = () => { const current = seasons.find(s => s.season_number === season); if (current && episode < current.episode_count) setEpisode(episode + 1); else { const next = seasons.find(s => s.season_number === season + 1); if (next) { setSeason(season + 1); setEpisode(1); } } };
@@ -111,8 +102,8 @@ const Watch = () => {
 
     <main className="pt-14"><div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
       <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 mb-3">
-        <button onClick={() => { setActivePlayer(1); setStreamFailed(false); }} className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 1 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 1</button>
-        <button onClick={() => { setActivePlayer(3); setStreamFailed(false); }} className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 3 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 3 • Loki</button>
+        <button onClick={() => { setActivePlayer(1); }} className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 1 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 1</button>
+        <button onClick={() => { setActivePlayer(3); }} className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 3 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 3 • Loki</button>
       </div>
 
       {activePlayer === 3 && <div className="flex flex-wrap items-center gap-2 mb-3" aria-label="Fontes do Player 3">
