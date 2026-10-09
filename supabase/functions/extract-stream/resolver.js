@@ -12,10 +12,13 @@ export function candidates(source) {
   const u = new URL(source);
   if (!PROVIDERS.some(host => u.hostname === host || u.hostname === `www.${host}`)) throw new Error('Invalid provider');
   const m = u.pathname.match(/^\/(filme|serie)\/(\d{1,12})(?:\/(\d{1,4})\/(\d{1,4}))?\/?$/);
-  if (!m || (m[1] === 'filme' && m[3]) || m[3] === '0' || m[4] === '0') throw new Error('Invalid content');
+  if (!m || (m[1] === 'filme' && m[3]) || m[3] === '0' || m[4] === '0') {
+    if (/^(?:www\.)?embedplay\.one$/.test(u.hostname) && /^\/filme\/tt\d{5,12}\/?$/.test(u.pathname)) return [u.href];
+    throw new Error('Invalid content');
+  }
   const [, type, id, season = '1', episode = '1'] = m;
   // V2: mgeb, nhdapi e Superflix; extrair playlists HLS e seguir embeds sem executar JS.
-  return type === 'filme' ? [`https://mgeb.site/embed/${id}`, `https://mgeb.top/embed/${id}`, `https://nhdapi.com/embed/movie/${id}`, `https://superflixapi.quest/filme/${id}`] :
+  return type === 'filme' ? [`https://mgeb.site/embed/${id}`, `https://mgeb.top/embed/${id}`, `https://nhdapi.com/embed/movie/${id}`, `https://superflixapi.quest/filme/${id}`, `https://www.embedplay.one/filme/${id}`] :
     [`https://mgeb.site/embed/${id}/${season}/${episode}`, `https://mgeb.top/embed/${id}/${season}/${episode}`, `https://nhdapi.com/embed/tv/${id}/${season}/${episode}`, `https://superflixapi.quest/serie/${id}/${season}/${episode}`];
 }
 // V2 (get_stream_v2.py): decodifica mais escapes sem executar JS.
