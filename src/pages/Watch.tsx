@@ -5,10 +5,9 @@ import { Button } from '@/components/ui/button';
 import { PlayerControls } from '@/components/PlayerControls';
 import { PLAYER3_SOURCES, buildEmbedUrl } from '@/lib/player3Sources.js';
 import { HlsPlayer } from '@/components/HlsPlayer';
-import { Input } from '@/components/ui/input';
 import { EpisodePicker } from '@/components/EpisodePicker';
 import { PlayerTheme } from '@/types/content';
-import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl } from '@/lib/api';
+import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl, getDirectStreamUrl, DirectStream } from '@/lib/api';
 
 const Watch = () => {
   const { type, id: rawId } = useParams<{ type: string; id: string }>();
@@ -74,34 +73,24 @@ const Watch = () => {
   const [player3Source, setPlayer3Source] = useState('mgeb');
   const [player3LoadError, setPlayer3LoadError] = useState(false);
   const player3EmbedUrl = id ? buildEmbedUrl(player3Source, id, isSeries ? 'serie' : 'movie', season, episode) : null;
-  const [mediaInput, setMediaInput] = useState('');
-  const [mediaUrl, setMediaUrl] = useState('');
-  const [mediaStatus, setMediaStatus] = useState('');
-  const [mediaChecking, setMediaChecking] = useState(false);
-  const validMedia = (value: string) => {
-    try { const u = new URL(value.trim()); return u.protocol === 'https:' && /\.(m3u8|mp4|m4v|webm|ts)$/i.test(u.pathname); }
-    catch { return false; }
-  };
-  const openMedia = (value: string) => {
-    if (!validMedia(value)) { setMediaStatus('Informe uma URL HTTPS direta de vídeo.'); return; }
-    setMediaUrl(value.trim()); setMediaStatus('Reprodução direta pela conexão do visitante.');
-  };
-  useEffect(() => { setMediaUrl(''); setMediaInput(''); setMediaStatus(''); }, [id, season, episode, player3Source]);
-  const findBrowserMedia = async () => {
-    if (!player3EmbedUrl) return;
-    setMediaChecking(true); setMediaStatus('Buscando mídia acessível pelo navegador...');
-    try {
-      const response = await fetch(player3EmbedUrl, { credentials: 'omit' });
-      if (!response.ok) throw new Error('HTTP ' + response.status);
-      const html = (await response.text()).replaceAll('&amp;', '&');
-      const matches = html.match(/https?:[^"'<>\s]+/gi) || [];
-      const url = matches.map(v => v.replace(/[),;]+$/, '')).find(validMedia);
-      if (url) { setMediaInput(url); openMedia(url); }
-      else setMediaStatus('Nenhuma URL direta encontrada no HTML acessível.');
-    } catch { setMediaStatus('Fonte não permite leitura no navegador (CORS/rede). Não é possível inspecionar o iframe externo.'); }
-    finally { setMediaChecking(false); }
-  };
-
+  const [resolved, setResolved] = useState<DirectStream | null>(null);
+  const [resolving, setResolving] = useState(false);
+  const [resolveError, setResolveError] = useState('');
+  const [resolveRetry, setResolveRetry] = useState(0);
+  useEffect(() => {
+    if (activePlayer !== 3 || !id) return;
+    const controller = new AbortController();
+    setResolved(null); setResolveError(''); setResolving(true);
+    getDirectStreamUrl(id, isSeries ? 'serie' : 'movie', season, episode, controller.signal)
+      .then(data => {
+        if (controller.signal.aborted) return;
+        if (data?.streamUrl && /^https:\/\//i.test(data.streamUrl)) setResolved(data);
+        else setResolveError('O extrator não encontrou uma mídia disponível. Selecione uma fonte alternativa.');
+      })
+      .catch(() => { if (!controller.signal.aborted) setResolveError('Não foi possível resolver o vídeo agora.'); })
+      .finally(() => { if (!controller.signal.aborted) setResolving(false); });
+    return () => controller.abort();
+  }, [activePlayer, id, isSeries, season, episode, resolveRetry]);
   useEffect(() => {
     setPlayer3LoadError(false);
   }, [id, season, episode, player3Source]);
@@ -136,20 +125,15 @@ const Watch = () => {
         <button onClick={() => { setActivePlayer(3); }} className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 3 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 3 • Loki</button>
       </div>
 
-      {activePlayer === 3 && <div className="flex flex-wrap items-center gap-2 mb-3" aria-label="Fontes do Player 3">
-        {PLAYER3_SOURCES.map(source => <Button key={source.id} size="sm" variant={player3Source === source.id ? 'default' : 'secondary'} onClick={() => setPlayer3Source(source.id)}>{source.label}</Button>)}
-        <span className="text-xs text-muted-foreground">Conexão direta do visitante; disponibilidade depende da fonte.</span>
-        <Button size="sm" variant="outline" onClick={() => void findBrowserMedia()} disabled={mediaChecking}>{mediaChecking ? 'Buscando...' : 'Procurar M3U8/MP4'}</Button>
-        <div className="flex w-full flex-wrap items-center gap-2">
-          <Input aria-label="URL direta de mídia" className="min-w-[220px] flex-1" placeholder="Cole URL HTTPS .m3u8 ou .mp4" value={mediaInput} onChange={event => setMediaInput(event.target.value)} />
-          <Button size="sm" onClick={() => openMedia(mediaInput)}>Reproduzir URL</Button>
-          {mediaUrl && <Button size="sm" variant="secondary" onClick={() => setMediaUrl('')}>Voltar ao embed</Button>}
-        </div>
-        {mediaStatus && <p role="status" className="w-full text-xs text-muted-foreground">{mediaStatus}</p>}
+      {activePlayer === 3 && <div className="flex flex-wrap items-center gap-2 mb-3">
+        <Button size="sm" variant="outline" onClick={() => setResolveRetry(v => v + 1)} disabled={resolving}>{resolving ? 'Buscando vídeo...' : 'Tentar extrair novamente'}</Button>
+        {PLAYER3_SOURCES.map(source => <Button key={source.id} size="sm" variant={player3Source === source.id ? 'default' : 'secondary'} onClick={() => { setPlayer3Source(source.id); setResolved(null); }}>{source.label}</Button>)}
+        {resolveError && <p role="status" className="w-full text-xs text-muted-foreground">{resolveError}</p>}
       </div>}
       <div className="relative w-full aspect-video sm:min-h-[400px] bg-card rounded-lg overflow-hidden shadow-2xl mb-5">
         {invalidContent ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><p className="text-sm text-muted-foreground">O link acessado não é válido (ID: {rawId}).</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>
-        : activePlayer === 3 && mediaUrl ? <HlsPlayer key={mediaUrl} src={mediaUrl} isHls={/\.m3u8(?:[?#]|$)/i.test(mediaUrl)} onFatalError={() => { setMediaUrl(''); setMediaStatus('Falha ao reproduzir: formato, CORS ou link indisponível.'); }} />
+        : activePlayer === 3 && resolving ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card"><Loader2 className="w-8 h-8 animate-spin" /><p className="text-sm">Procurando vídeo...</p></div>
+        : activePlayer === 3 && resolved?.streamUrl ? <HlsPlayer key={resolved.streamUrl} src={resolved.streamUrl} isHls={resolved.kind === 'hls' || /\.m3u8(?:[?#]|$)/i.test(resolved.streamUrl)} onFatalError={() => { setResolved(null); setResolveError('Link encontrado, mas a reprodução direta foi recusada (CORS, token ou formato).'); }} />
         : activePlayer === 3 && player3EmbedUrl && !player3LoadError ? <iframe
             key={`p3-${player3Source}-${id}-${season}-${episode}`}
             src={player3EmbedUrl}
