@@ -15,13 +15,13 @@ const safeUrl = (value: string, base: string): string | null => {
     const url = new URL(value.startsWith('//') ? 'https:' + value : value, base);
     if (url.protocol !== 'https:' || url.username || url.password || (url.port && url.port !== '443')) return null;
     const h = url.hostname;
-    if (!h.includes('.') || h === 'localhost' || /^(?:\\d{1,3}\\.){3}\\d{1,3}$/.test(h) || h.endsWith('.local')) return null;
+    if (!h.includes('.') || h === 'localhost' || /^(?:\d{1,3}\.){3}\d{1,3}$/.test(h) || h.endsWith('.local')) return null;
     return url.href;
   } catch { return null; }
 };
 
 const mediaType = (url: string): 'hls' | 'mp4' | null =>
-  /\\.m3u8(?:[?#]|$)/i.test(url) ? 'hls' : /\\.mp4(?:[?#]|$)/i.test(url) ? 'mp4' : null;
+  /\.m3u8(?:[?#]|$)/i.test(url) ? 'hls' : /\.mp4(?:[?#]|$)/i.test(url) ? 'mp4' : null;
 
 function parseHtml(html: string, base: string) {
   const decoded = decode(html);
