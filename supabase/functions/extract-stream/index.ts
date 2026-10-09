@@ -58,10 +58,28 @@ async function readText(response: Response) {
     return text + decoder.decode();
   } finally { await reader.cancel(); }
 }
+async function imdbFallback(source: string): Promise<string | null> {
+  try {
+    const u = new URL(source);
+    const m = u.pathname.match(/^\/(filme|serie)\/(\d{1,12})(?:\/(\d{1,4})\/(\d{1,4}))?\/?$/);
+    if (!m) return null;
+    const key = Deno.env.get('TMDB_API_KEY');
+    if (!key) return null;
+    const media = m[1] === 'filme' ? 'movie' : 'tv';
+    const res = await fetch(`https://api.themoviedb.org/3/${media}/${m[2]}/external_ids?api_key=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const imdb = (await res.json())?.imdb_id;
+    return typeof imdb === 'string' && /^tt\d{5,12}$/.test(imdb) && media === 'movie'
+      ? `https://www.embedplay.one/filme/${imdb}` : null;
+  } catch { return null; }
+}
 async function extract(source: string) {
   // Fontes em sequência; a primeira que achar vídeo válido retorna na hora.
   const end = Date.now() + 45000;
-  for (const start of candidates(source)) {
+  const sources = candidates(source);
+  const imdb = await imdbFallback(source);
+  if (imdb && !sources.includes(imdb)) sources.push(imdb);
+  for (const start of sources) {
     if (Date.now() >= end) break;
     const found = await extractFrom(start, Math.min(end, Date.now() + 15000));
     if (found) return found;
