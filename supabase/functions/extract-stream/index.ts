@@ -77,19 +77,21 @@ async function extract(source: string) {
       const referer = depth === 1 ? REFERER : loaded.url;
       for (const stream of extractUrls(html, loaded.url, isTrusted).slice(0, 8)) {
         try {
-          const kind = /\.m3u8/i.test(stream) ? 'hls' : 'mp4';
+          let kind: 'hls' | 'mp4' = /\.m3u8?(\?|$)/i.test(stream) ? 'hls' : 'mp4';
           const allow = (u: string) => allowedUrl(u) || publicUrl(u);
           const media = await upstream(stream, referer, kind === 'mp4' ? 'bytes=0-4095' : null, allow);
           if (!media.response.ok) { await media.response.body?.cancel(); continue; }
           let expiry = expiresAt(stream);
-          if (kind === 'hls') {
-            const playlist = await readText(media.response);
-            if (!playlist.trimStart().startsWith('#EXTM3U')) continue;
-            expiry = expiresAt(playlist) ?? expiry;
+          const ct = media.response.headers.get('content-type') || '';
+          if (/mpegurl/i.test(ct)) kind = 'hls';
+          if (kind === 'hls' || !/video|octet/i.test(ct)) {
+            const text = await readText(media.response);
+            if (text.trimStart().startsWith('#EXTM3U')) {
+              kind = 'hls';
+              expiry = expiresAt(text) ?? expiry;
+            } else if (kind === 'hls' || /html|json|text/i.test(ct)) continue;
           } else {
-            const ct = media.response.headers.get('content-type') || '';
             await media.response.body?.cancel();
-            if (/html|json/i.test(ct)) continue;
           }
           if (expiry && expiry <= Date.now()) continue;
           const streamUrl = kind === 'mp4' ? stream : media.url;
