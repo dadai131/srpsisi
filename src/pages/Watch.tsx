@@ -7,7 +7,8 @@ import { PLAYER3_SOURCES, buildEmbedUrl } from '@/lib/player3Sources.js';
 import { HlsPlayer } from '@/components/HlsPlayer';
 import { EpisodePicker } from '@/components/EpisodePicker';
 import { PlayerTheme } from '@/types/content';
-import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl, getDirectStreamUrl, DirectStream } from '@/lib/api';
+import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl } from '@/lib/api';
+import { extractStreamInBrowser, BrowserStream } from '@/lib/browserStreamExtractor';
 
 const Watch = () => {
   const { type, id: rawId } = useParams<{ type: string; id: string }>();
@@ -68,12 +69,11 @@ const Watch = () => {
   }, [season, episode, seasons, activePlayer]);
 
 
-  // Player 3: direct browser connection to configured embed providers.
-  // No backend resolution, proxy or cross-origin iframe inspection.
+  // Player 3: V2-style browser extraction where CORS permits; no backend.
   const [player3Source, setPlayer3Source] = useState('mgeb');
   const [player3LoadError, setPlayer3LoadError] = useState(false);
   const player3EmbedUrl = id ? buildEmbedUrl(player3Source, id, isSeries ? 'serie' : 'movie', season, episode) : null;
-  const [resolved, setResolved] = useState<DirectStream | null>(null);
+  const [resolved, setResolved] = useState<BrowserStream | null>(null);
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState('');
   const [resolveRetry, setResolveRetry] = useState(0);
@@ -81,13 +81,15 @@ const Watch = () => {
     if (activePlayer !== 3 || !id) return;
     const controller = new AbortController();
     setResolved(null); setResolveError(''); setResolving(true);
-    getDirectStreamUrl(id, isSeries ? 'serie' : 'movie', season, episode, controller.signal)
-      .then(data => {
+    extractStreamInBrowser(id, isSeries ? 'serie' : 'movie', season, episode, controller.signal)
+      .then(result => {
         if (controller.signal.aborted) return;
-        if (data?.streamUrl && /^https:\/\//i.test(data.streamUrl)) setResolved(data);
-        else setResolveError('O extrator não encontrou uma mídia disponível. Selecione uma fonte alternativa.');
+        if (result.stream) setResolved(result.stream);
+        else setResolveError(result.blockedByCors
+          ? 'O navegador não conseguiu ler as fontes (CORS ou falha de rede). Use o embed ou uma fonte que permita CORS.'
+          : 'Nenhum M3U8 ou MP4 encontrado nas páginas acessíveis. Tente outra fonte.');
       })
-      .catch(() => { if (!controller.signal.aborted) setResolveError('Não foi possível resolver o vídeo agora.'); })
+      .catch(() => { if (!controller.signal.aborted) setResolveError('Falha na busca pelo navegador.'); })
       .finally(() => { if (!controller.signal.aborted) setResolving(false); });
     return () => controller.abort();
   }, [activePlayer, id, isSeries, season, episode, resolveRetry]);
