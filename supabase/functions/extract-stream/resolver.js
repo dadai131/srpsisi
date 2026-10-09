@@ -15,8 +15,8 @@ export function candidates(source) {
   if (!m || (m[1] === 'filme' && m[3]) || m[3] === '0' || m[4] === '0') throw new Error('Invalid content');
   const [, type, id, season = '1', episode = '1'] = m;
   // V2: mgeb, nhdapi e Superflix; extrair playlists HLS e seguir embeds sem executar JS.
-  return type === 'filme' ? [`https://mgeb.top/embed/${id}`, `https://nhdapi.com/embed/movie/${id}`, `https://superflixapi.quest/filme/${id}`] :
-    [`https://mgeb.top/embed/${id}/${season}/${episode}`, `https://nhdapi.com/embed/tv/${id}/${season}/${episode}`, `https://superflixapi.quest/serie/${id}/${season}/${episode}`];
+  return type === 'filme' ? [`https://mgeb.site/embed/${id}`, `https://mgeb.top/embed/${id}`, `https://nhdapi.com/embed/movie/${id}`, `https://superflixapi.quest/filme/${id}`] :
+    [`https://mgeb.site/embed/${id}/${season}/${episode}`, `https://mgeb.top/embed/${id}/${season}/${episode}`, `https://nhdapi.com/embed/tv/${id}/${season}/${episode}`, `https://superflixapi.quest/serie/${id}/${season}/${episode}`];
 }
 // V2 (get_stream_v2.py): decodifica mais escapes sem executar JS.
 export function decodeText(html) {
