@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { allowedUrl, publicUrl, candidates, extractUrls, extractPages, expiresAt, rewritePlaylist } from './resolver.js';
+import { allowedUrl, publicUrl, candidates, extractUrls, extractPages, embedplayIds, expiresAt, rewritePlaylist } from './resolver.js';
 
 // Assinatura HMAC: só URLs encontradas pelo próprio extrator podem passar pelo proxy fora da allowlist.
 const SIGN_KEY = (globalThis as any).Deno?.env?.get('SUPABASE_SERVICE_ROLE_KEY') || 'loki-player3';
@@ -59,13 +59,35 @@ async function readText(response: Response) {
   } finally { await reader.cancel(); }
 }
 async function extract(source: string) {
+  // Fontes em sequência; a primeira que achar vídeo válido retorna na hora.
+  const end = Date.now() + 45000;
+  for (const start of candidates(source)) {
+    if (Date.now() >= end) break;
+    const found = await extractFrom(start, Math.min(end, Date.now() + 15000));
+    if (found) return found;
+  }
+  return null;
+}
+async function embedplayPlayers(pageUrl: string, html: string) {
+  const out: string[] = [];
+  for (const id of embedplayIds(html).slice(0, 4)) {
+    try {
+      const r = await fetch('https://www.embedplay.one/api', { method: 'POST', signal: AbortSignal.timeout(6000),
+        headers: { 'User-Agent': UA, Referer: pageUrl, Origin: 'https://www.embedplay.one', 'X-Requested-With': 'XMLHttpRequest',
+          'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ action: 'getPlayer', video_id: id }) });
+      const u = (await r.json())?.data?.video_url;
+      if (typeof u === 'string' && publicUrl(u)) out.push(u);
+    } catch { /* next */ }
+  }
+  return out;
+}
+async function extractFrom(startUrl: string, deadline: number) {
   // V2: segue iframes/páginas de player (crawl_embeds) até 3 níveis, sem executar JS.
-  const queue: [string, number][] = candidates(source).map(u => [u, 1]);
+  const queue: [string, number][] = [[startUrl, 1]];
   const visited = new Set<string>();
   const trusted = new Set<string>(); // hosts descobertos neste crawl
   const isTrusted = (u: string) => { try { return trusted.has(new URL(u).hostname); } catch { return false; } };
-  const deadline = Date.now() + 40000;
-  while (queue.length && visited.size < 15 && Date.now() < deadline) {
+  while (queue.length && visited.size < 10 && Date.now() < deadline) {
     const [page, depth] = queue.shift()!;
     if (visited.has(page)) continue;
     visited.add(page);
@@ -99,6 +121,8 @@ async function extract(source: string) {
             ...(allowedUrl(streamUrl) ? {} : { sig: await sign(streamUrl) }) };
         } catch { /* Try next stream. */ }
       }
+      if (depth === 1 && /embedplay\.one$/.test(new URL(loaded.url).hostname))
+        for (const p of await embedplayPlayers(loaded.url, html)) queue.unshift([p, 2]);
       if (depth < 3) for (const next of extractPages(html, loaded.url)) if (!visited.has(next)) queue.push([next, depth + 1]);
     } catch { /* Try next page, including on timeout. */ }
   }
