@@ -1,7 +1,9 @@
+import { Parser } from 'm3u8-parser';
 // Browser-only port of the public HTML extraction flow in get_stream_v2.py.
 // Cross-origin pages must explicitly allow CORS; this does not bypass access controls.
 import { buildEmbedUrl } from './player3Sources.js';
 
+export type ExtractionMode = 'regex' | 'dom' | 'playlist';
 export interface BrowserStream { streamUrl: string; kind: 'hls' | 'mp4'; source: string }
 export interface BrowserExtraction { stream: BrowserStream | null; blockedByCors: boolean; visited: number }
 
@@ -23,7 +25,7 @@ const safeUrl = (value: string, base: string): string | null => {
 const mediaType = (url: string): 'hls' | 'mp4' | null =>
   /\.m3u8(?:[?#]|$)/i.test(url) ? 'hls' : /\.mp4(?:[?#]|$)/i.test(url) ? 'mp4' : null;
 
-function parseHtml(html: string, base: string) {
+function parseHtml(html: string, base: string, mode: ExtractionMode) {
   const decoded = decode(html);
   if (decoded.includes('challenges.cloudflare.com/turnstile') || decoded.includes('cf_embed_challenge') || decoded.includes('cf-turnstile-response')) return { media: [], pages: [] };
   const media = new Set<string>();
@@ -33,9 +35,9 @@ function parseHtml(html: string, base: string) {
     if (url) target.add(url);
   };
   const mediaPattern = /https?:\/\/[^\s"'<>]+?\.(?:m3u8|mp4)(?:\?[^\s"'<>]*)?/gi;
-  for (const m of decoded.matchAll(mediaPattern)) add(m[0], media);
-  const doc = new DOMParser().parseFromString(decoded, 'text/html');
-  for (const el of Array.from(doc.querySelectorAll('iframe[src], iframe[data-src], video[src], source[src]'))) {
+  if (mode !== 'dom') for (const m of decoded.matchAll(mediaPattern)) add(m[0], media);
+  const doc = mode === 'regex' ? null : new DOMParser().parseFromString(decoded, 'text/html');
+  for (const el of Array.from(doc?.querySelectorAll('iframe[src], iframe[data-src], video[src], source[src]') ?? [])) {
     const raw = el.getAttribute('src') || el.getAttribute('data-src');
     if (!raw) continue;
     const url = safeUrl(raw, base);
@@ -43,7 +45,7 @@ function parseHtml(html: string, base: string) {
     (mediaType(url) ? media : pages).add(url);
   }
   const pagePattern = /(?:src|file|url|embed|player)\s*[:=]\s*['"]((?:https?:)?\/\/[^\s'"<>]{4,500})['"]/gi;
-  for (const m of decoded.matchAll(pagePattern)) {
+  if (mode !== 'dom') for (const m of decoded.matchAll(pagePattern)) {
     const url = safeUrl(m[1], base);
     if (url) (mediaType(url) ? media : pages).add(url);
   }
@@ -51,7 +53,7 @@ function parseHtml(html: string, base: string) {
 }
 
 export async function extractStreamInBrowser(
-  id: string, type: 'movie' | 'serie', season: number, episode: number, signal: AbortSignal,
+  id: string, type: 'movie' | 'serie', season: number, episode: number, signal: AbortSignal, mode: ExtractionMode = 'regex',
 ): Promise<BrowserExtraction> {
   const seeds = ['mgeb', 'nhd'].map(source => buildEmbedUrl(source, id, type, season, episode)).filter((u): u is string => !!u);
   const queue = seeds.map(url => ({ url, depth: 0 }));
@@ -79,10 +81,28 @@ export async function extractStreamInBrowser(
     }
     if (!['html', 'text/plain', 'javascript', 'json'].some(kind => ct.includes(kind))) continue;
     const html = (await response.text()).slice(0, 1_500_000);
-    const { media, pages } = parseHtml(html, response.url || next.url);
+    const { media, pages } = parseHtml(html, response.url || next.url, mode);
     // The browser player checks playback of candidate URLs itself; avoid
     // cross-origin GET probing of video files and their potentially large bodies.
-    if (media.length) return { stream: { streamUrl: media[0], kind: mediaType(media[0])!, source: next.url }, blockedByCors, visited: visited.size };
+    for (const url of media) {
+      const kind = mediaType(url);
+      if (!kind) continue;
+      if (mode === 'playlist' && kind === 'hls') {
+        try {
+          const playlist = await fetch(url, { signal, credentials: 'omit' });
+          if (!playlist.ok) continue;
+          const parser = new Parser();
+          parser.push(await playlist.text());
+          parser.end();
+          if (!parser.manifest.playlists?.length && !parser.manifest.segments?.length) continue;
+        } catch (error) {
+          if (signal.aborted) throw error;
+          blockedByCors = true;
+          continue;
+        }
+      }
+      return { stream: { streamUrl: url, kind, source: next.url }, blockedByCors, visited: visited.size };
+    }
     for (const url of pages) if (!visited.has(url)) queue.push({ url, depth: next.depth + 1 });
   }
   return { stream: null, blockedByCors, visited: visited.size };
