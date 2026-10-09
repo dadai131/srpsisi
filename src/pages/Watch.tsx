@@ -8,7 +8,7 @@ import { HlsPlayer } from '@/components/HlsPlayer';
 import { EpisodePicker } from '@/components/EpisodePicker';
 import { PlayerTheme } from '@/types/content';
 import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl } from '@/lib/api';
-import { extractStreamInBrowser, BrowserStream } from '@/lib/browserStreamExtractor';
+import { extractStreamInBrowser, BrowserStream, ExtractionMode } from '@/lib/browserStreamExtractor';
 
 const Watch = () => {
   const { type, id: rawId } = useParams<{ type: string; id: string }>();
@@ -74,6 +74,7 @@ const Watch = () => {
   const [player3LoadError, setPlayer3LoadError] = useState(false);
   const player3EmbedUrl = id ? buildEmbedUrl(player3Source, id, isSeries ? 'serie' : 'movie', season, episode) : null;
   const [resolved, setResolved] = useState<BrowserStream | null>(null);
+  const [extractionMode, setExtractionMode] = useState<ExtractionMode>('regex');
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState('');
   const [resolveRetry, setResolveRetry] = useState(0);
@@ -81,7 +82,7 @@ const Watch = () => {
     if (activePlayer !== 3 || !id) return;
     const controller = new AbortController();
     setResolved(null); setResolveError(''); setResolving(true);
-    extractStreamInBrowser(id, isSeries ? 'serie' : 'movie', season, episode, controller.signal)
+    extractStreamInBrowser(id, isSeries ? 'serie' : 'movie', season, episode, controller.signal, extractionMode)
       .then(result => {
         if (controller.signal.aborted) return;
         if (result.stream) setResolved(result.stream);
@@ -92,7 +93,7 @@ const Watch = () => {
       .catch(() => { if (!controller.signal.aborted) setResolveError('Falha na busca pelo navegador.'); })
       .finally(() => { if (!controller.signal.aborted) setResolving(false); });
     return () => controller.abort();
-  }, [activePlayer, id, isSeries, season, episode, resolveRetry]);
+  }, [activePlayer, id, isSeries, season, episode, resolveRetry, extractionMode]);
   useEffect(() => {
     setPlayer3LoadError(false);
   }, [id, season, episode, player3Source]);
@@ -128,6 +129,13 @@ const Watch = () => {
       </div>
 
       {activePlayer === 3 && <div className="flex flex-wrap items-center gap-2 mb-3">
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">Método
+          <select aria-label="Método de extração" value={extractionMode} onChange={event => setExtractionMode(event.target.value as ExtractionMode)} className="rounded-md border border-border bg-background px-2 py-2 text-foreground">
+            <option value="regex">Regex JavaScript</option>
+            <option value="dom">DOMParser</option>
+            <option value="playlist">m3u8-parser</option>
+          </select>
+        </label>
         <Button size="sm" variant="outline" onClick={() => setResolveRetry(v => v + 1)} disabled={resolving}>{resolving ? 'Buscando vídeo...' : 'Tentar extrair novamente'}</Button>
         {PLAYER3_SOURCES.map(source => <Button key={source.id} size="sm" variant={player3Source === source.id ? 'default' : 'secondary'} onClick={() => { setPlayer3Source(source.id); setResolved(null); }}>{source.label}</Button>)}
         {resolveError && <p role="status" className="w-full text-xs text-muted-foreground">{resolveError}</p>}
