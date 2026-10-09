@@ -32,7 +32,8 @@ function parseHtml(html: string, base: string) {
     const url = safeUrl(value, base);
     if (url) target.add(url);
   };
-  for (const m of decoded.matchAll(/(?:https?:\\/\\/|\\/\\/|\\.\\.?\\/|\\/)[^\\s"'<>\\\\]*?\\.(?:m3u8|mp4)(?:\\?[^\\s"'<>\\\\]*)?/gi)) add(m[0], media);
+  const mediaPattern = new RegExp(String.raw`(?:https?:\\/\\/|\\/\\/|\\.\\.?\\/|\\/)[^\\s"'<>\\\\]*?\\.(?:m3u8|mp4)(?:\\?[^\\s"'<>\\\\]*)?`, 'gi');
+  for (const m of decoded.matchAll(mediaPattern)) add(m[0], media);
   const doc = new DOMParser().parseFromString(decoded, 'text/html');
   for (const el of Array.from(doc.querySelectorAll('iframe[src], iframe[data-src], video[src], source[src]'))) {
     const raw = el.getAttribute('src') || el.getAttribute('data-src');
@@ -41,7 +42,8 @@ function parseHtml(html: string, base: string) {
     if (!url) continue;
     (mediaType(url) ? media : pages).add(url);
   }
-  for (const m of decoded.matchAll(/(?:src|file|url|embed|player)\\s*[:=]\\s*['"]((?:https?:)?\\/\\/[^\\s'"<>]{4,500})['"]/gi)) {
+  const pagePattern = new RegExp(String.raw`(?:src|file|url|embed|player)\\s*[:=]\\s*['"]((?:https?:)?\\/\\/[^\\s'"<>]{4,500})['"]`, 'gi');
+  for (const m of decoded.matchAll(pagePattern)) {
     const url = safeUrl(m[1], base);
     if (url) (mediaType(url) ? media : pages).add(url);
   }
