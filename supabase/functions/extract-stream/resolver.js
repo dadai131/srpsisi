@@ -1,6 +1,6 @@
 // Port of get_stream.py: public HTML sources only; never solve challenges.
-export const PROVIDERS = ['mgeb.top', 'nhdapi.com', 'superflixapi.quest'];
-const MEDIA_HOSTS = [...PROVIDERS, '123flmsfree.com', 's1q2105.com', 'flyfile.app', 'streamtape.com', 'tapecontent.net', '97bf1.com', 'cuevana4br.com', 'playercdn.workers.dev', 'playercdn.xyz'];
+export const PROVIDERS = ['mgeb.top', 'mgeb.site', 'superflixapi.quest', 'embedplay.one', 'nhdapi.com'];
+const MEDIA_HOSTS = [...PROVIDERS, '123flmsfree.com', 's1q2105.com', 'flyfile.app', 'streamtape.com', 'tapecontent.net', '97bf1.com', 'cuevana4br.com', 'playercdn.workers.dev', 'playercdn.xyz', 'embedplayabyss.top', 'embedplaybyse.top', 'abysscdn.com'];
 export function allowedUrl(value) {
   try {
     const u = new URL(value);
@@ -14,8 +14,9 @@ export function candidates(source) {
   const m = u.pathname.match(/^\/(filme|serie)\/(\d{1,12})(?:\/(\d{1,4})\/(\d{1,4}))?\/?$/);
   if (!m || (m[1] === 'filme' && m[3]) || m[3] === '0' || m[4] === '0') throw new Error('Invalid content');
   const [, type, id, season = '1', episode = '1'] = m;
-  return type === 'filme' ? [`https://mgeb.top/embed/${id}`, `https://nhdapi.com/embed/movie/${id}`, `https://superflixapi.quest/filme/${id}`] :
-    [`https://mgeb.top/embed/${id}/${season}/${episode}`, `https://nhdapi.com/embed/tv/${id}/${season}/${episode}`, `https://superflixapi.quest/serie/${id}/${season}/${episode}`];
+  // Ordem fixa: 1º mgeb, 2º Superflix, 3º EmbedPlay, 4º nhdapi. O primeiro que achar vídeo encerra a busca.
+  return type === 'filme' ? [`https://mgeb.top/embed/${id}`, `https://superflixapi.quest/filme/${id}`, `https://www.embedplay.one/filme/${id}`, `https://nhdapi.com/embed/movie/${id}`] :
+    [`https://mgeb.top/embed/${id}/${season}/${episode}`, `https://superflixapi.quest/serie/${id}/${season}/${episode}`, `https://www.embedplay.one/serie/${id}/${season}/${episode}`, `https://nhdapi.com/embed/tv/${id}/${season}/${episode}`];
 }
 // V2 (get_stream_v2.py): decodifica mais escapes sem executar JS.
 export function decodeText(html) {
@@ -40,6 +41,7 @@ export function extractPages(html, base) {
     u = new URL(u.replace(/^(https?:\/\/[^/]+)\/(?:\.\.?\/)+/, '$1/'), base).href;
     if (!/\.(?:js|css|png|jpe?g|gif|svg|webp|ico|woff2?)(?:\?|$)/i.test(u) && publicUrl(u)) out.add(u);
   } catch { /* ignore */ } };
+  for (const m of text.matchAll(/data-url=['"]([^'"]+)['"]/gi)) add(m[1]);
   for (const m of text.matchAll(/<iframe[^>]{0,1000}?(?:src|data-src)=['"]([^'"]+)['"]/gi)) add(m[1]);
   for (const m of text.matchAll(/(?:src|file|url|embed|player)\s*[:=]\s*['"]((?:https?:)?\/\/[^\s'"<>]{4,500})['"]/gi)) add(m[1]);
   for (const m of text.matchAll(/['"]((?:https?:)?\/\/[^\s'"<>]+\/(?:embed|player|watch|e|v)\/[^\s'"<>]*)['"]/gi)) add(m[1]);
@@ -71,4 +73,8 @@ export function rewritePlaylist(text, base, wrap, isAllowed = allowedUrl) {
     };
     return value.startsWith('#') ? line.replace(/URI="([^"]+)"/g, (_, uri) => `URI="${resolve(uri)}"`) : resolve(value);
   }).join('\n');
+}
+// EmbedPlay: opções carregadas via POST /api (action=getPlayer, video_id=data-id).
+export function embedplayIds(html) {
+  return [...new Set([...html.matchAll(/class=['"]player_select_item['"][^>]*data-id=['"](\d{1,10})['"]/gi)].map(m => m[1]))];
 }
