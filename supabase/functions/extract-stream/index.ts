@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { allowedUrl, candidates, extractUrls, expiresAt, rewritePlaylist } from './resolver.js';
+import { allowedUrl, candidates, extractUrls, expiresAt, rewritePlaylist, m3uEntries } from './resolver.js';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -55,22 +55,32 @@ async function extract(source: string) {
       const loaded = await upstream(page, REFERER);
       if (!loaded.response.ok) { await loaded.response.body?.cancel(); continue; }
       const html = await readText(loaded.response);
-      for (const stream of extractUrls(html, loaded.url).slice(0, 8)) {
+      const queue = extractUrls(html, loaded.url).slice(0, 12);
+      const visited = new Set<string>();
+      for (let i = 0; i < queue.length && i < 24; i++) {
+        const stream = queue[i];
+        if (visited.has(stream)) continue;
+        visited.add(stream);
         try {
-          const kind = /\.m3u8/i.test(stream) ? 'hls' : 'mp4';
+          const pathname = new URL(stream).pathname;
+          const kind = /\\.m3u8$/i.test(pathname) ? 'hls' : /\\.m3u$/i.test(pathname) ? 'm3u' : 'mp4';
           const media = await upstream(stream, REFERER, kind === 'mp4' ? 'bytes=0-4095' : null);
           if (!media.response.ok) { await media.response.body?.cancel(); continue; }
           let expiry = expiresAt(stream);
+          if (kind === 'm3u') {
+            const playlist = await readText(media.response);
+            queue.push(...m3uEntries(playlist, media.url));
+            continue;
+          }
           if (kind === 'hls') {
             const playlist = await readText(media.response);
             if (!playlist.trimStart().startsWith('#EXTM3U')) continue;
             expiry = expiresAt(playlist) ?? expiry;
-            // Validate nested hosts before returning an unusable playlist.
             rewritePlaylist(playlist, media.url, (url: string) => url);
           } else {
             const ct = media.response.headers.get('content-type') || '';
             await media.response.body?.cancel();
-            if (/html|json/i.test(ct)) continue;
+            if (/html|json|mpegurl|audio\\/x-mpegurl/i.test(ct)) continue;
           }
           if (expiry && expiry <= Date.now()) continue;
           return { streamUrl: kind === 'mp4' ? stream : media.url, kind, referer: REFERER, expiresAt: expiry, source: new URL(page).hostname };
