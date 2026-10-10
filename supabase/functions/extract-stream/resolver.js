@@ -1,5 +1,5 @@
 // Port of get_stream.py: public HTML sources only; never solve challenges.
-export const PROVIDERS = ['mgeb.top', 'nhdapi.com', 'superflixapi.quest'];
+export const PROVIDERS = ['mgeb.top', 'mgeb.site', 'nhdapi.com', 'superflixapi.quest'];
 const MEDIA_HOSTS = [...PROVIDERS, 'mgeb.site', 'powestream.workers.dev', '123flmsfree.com', 's1q2105.com', 'flyfile.app', 'streamtape.com', 'tapecontent.net', '97bf1.com', 'cuevana4br.com', 'playercdn.workers.dev', 'playercdn.xyz'];
 export function allowedUrl(value) {
   try {
@@ -14,8 +14,8 @@ export function candidates(source) {
   const m = u.pathname.match(/^\/(filme|serie)\/(\d{1,12})(?:\/(\d{1,4})\/(\d{1,4}))?\/?$/);
   if (!m || (m[1] === 'filme' && m[3]) || m[3] === '0' || m[4] === '0') throw new Error('Invalid content');
   const [, type, id, season = '1', episode = '1'] = m;
-  return type === 'filme' ? [`https://mgeb.top/embed/${id}`, `https://nhdapi.com/embed/movie/${id}`, `https://superflixapi.quest/filme/${id}`] :
-    [`https://mgeb.top/embed/${id}/${season}/${episode}`, `https://nhdapi.com/embed/tv/${id}/${season}/${episode}`, `https://superflixapi.quest/serie/${id}/${season}/${episode}`];
+  return type === 'filme' ? [`https://mgeb.site/embed/${id}`, `https://mgeb.top/embed/${id}`, `https://nhdapi.com/embed/movie/${id}`, `https://superflixapi.quest/filme/${id}`] :
+    [`https://mgeb.site/embed/${id}/${season}/${episode}`, `https://mgeb.top/embed/${id}/${season}/${episode}`, `https://nhdapi.com/embed/tv/${id}/${season}/${episode}`, `https://superflixapi.quest/serie/${id}/${season}/${episode}`];
 }
 export function extractUrls(html, base) {
   const text = html.replace(/\\\//g, '/').replace(/\\u002[fF]/g, '/').replace(/\\u0026|&amp;/g, '&');
@@ -25,7 +25,7 @@ export function extractUrls(html, base) {
   const src = text.match(/var\s+sources\s*=\s*(\[[\s\S]*?\]);/);
   if (src) { try { for (const s of JSON.parse(src[1])) if (s?.file) declared.push({ file: s.file, mp4: s.type === 'mp4' }); } catch { /* ignore */ } }
   declared.sort((a, b) => Number(b.mp4) - Number(a.mp4));
-  const matches = declared.map(d => d.file).concat(text.match(/(?:https?:\/\/|\/\/|\.\.?\/|\/)[^\s"'<>\\]*?\.(?:m3u8|mp4)(?:\?[^\s"'<>\\]*)?/gi) || []);
+  const matches = declared.map(d => d.file).concat(text.match(/(?:https?:\/\/|\/\/|\.\.?\/|\/)[^\s"'<>\\]*?\.(?:m3u8|m3u|mp4)(?:\?[^\s"'<>\\]*)?/gi) || []);
   return [...new Set(matches.map(value => new URL(value.replace(/^(https?:\/\/[^/]+)\/(?:\.\.?\/)+/, '$1/'), base).href))].filter(allowedUrl);
 }
 export function expiresAt(text) {
@@ -43,4 +43,19 @@ export function rewritePlaylist(text, base, wrap) {
     };
     return value.startsWith('#') ? line.replace(/URI="([^"]+)"/g, (_, uri) => `URI="${resolve(uri)}"`) : resolve(value);
   }).join('\n');
+}
+
+// M3U is a list of media URLs, not an HLS manifest. Resolve only allowlisted entries.
+export function m3uEntries(text, base) {
+  if (!text.trimStart().startsWith('#EXTM3U')) return [];
+  const entries = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    try {
+      const url = new URL(line, base).href;
+      if (allowedUrl(url) && /\.(?:mp4|m3u8)$/i.test(new URL(url).pathname)) entries.push(url);
+    } catch { /* skip malformed entry */ }
+  }
+  return [...new Set(entries)].slice(0, 12);
 }
