@@ -27,7 +27,7 @@ export function extractUrls(html, base) {
   declared.sort((a, b) => Number(b.mp4) - Number(a.mp4));
   const matches = declared.map(d => d.file).concat(text.match(/(?:https?:\/\/|\/\/|\.\.?\/|\/)[^\s"'<>\\]*?\.(?:m3u8|m3u|mp4)(?:\?[^\s"'<>\\]*)?/gi) || []);
   // HLS endpoints may be PHP scripts with file=master.m3u8 in the query.
-  const phpHls = text.match(/https?:\\/\\/[^\\s"'<>\\\\]+?\\/includes\\/hls\\.php\\?[^\\s"'<>\\\\]+/gi) || [];
+  const phpHls = text.match(/https?:\/\/[^\s"'<>\\]+?\/includes\/hls\.php\?[^\s"'<>\\]+/gi) || [];
   matches.push(...phpHls.map(value => value.replace(/&amp;/g, '&')));
   return [...new Set(matches.map(value => new URL(value.replace(/^(https?:\/\/[^/]+)\/(?:\.\.?\/)+/, '$1/'), base).href))].filter(allowedUrl);
 }
