@@ -1,6 +1,6 @@
 // Port of get_stream.py: public HTML sources only; never solve challenges.
 export const PROVIDERS = ['mgeb.top', 'nhdapi.com', 'superflixapi.quest'];
-const MEDIA_HOSTS = [...PROVIDERS, '123flmsfree.com', 's1q2105.com', 'flyfile.app', 'streamtape.com', 'tapecontent.net', '97bf1.com', 'cuevana4br.com', 'playercdn.workers.dev', 'playercdn.xyz'];
+const MEDIA_HOSTS = [...PROVIDERS, 'mgeb.site', 'powestream.workers.dev', '123flmsfree.com', 's1q2105.com', 'flyfile.app', 'streamtape.com', 'tapecontent.net', '97bf1.com', 'cuevana4br.com', 'playercdn.workers.dev', 'playercdn.xyz'];
 export function allowedUrl(value) {
   try {
     const u = new URL(value);
