@@ -62,11 +62,15 @@ async function extract(source: string) {
         if (visited.has(stream)) continue;
         visited.add(stream);
         try {
-          const pathname = new URL(stream).pathname;
-          const kind = /\\.m3u8$/i.test(pathname) ? 'hls' : /\\.m3u$/i.test(pathname) ? 'm3u' : 'mp4';
+          const parsed = new URL(stream);
+          const pathname = parsed.pathname;
+          const file = parsed.searchParams.get('file') || '';
+          let kind = /\.m3u8$/i.test(pathname) || /\.m3u8$/i.test(file) ? 'hls' : /\.m3u$/i.test(pathname) ? 'm3u' : 'mp4';
           const media = await upstream(stream, REFERER, kind === 'mp4' ? 'bytes=0-4095' : null);
           if (!media.response.ok) { await media.response.body?.cancel(); continue; }
           let expiry = expiresAt(stream);
+          const mediaType = media.response.headers.get('content-type') || '';
+          if (kind === 'mp4' && /(?:mpegurl|x-mpegurl)/i.test(mediaType)) kind = 'hls';
           if (kind === 'm3u') {
             const playlist = await readText(media.response);
             queue.push(...m3uEntries(playlist, media.url));
@@ -80,7 +84,7 @@ async function extract(source: string) {
           } else {
             const ct = media.response.headers.get('content-type') || '';
             await media.response.body?.cancel();
-            if (/html|json|mpegurl|audio\\/x-mpegurl/i.test(ct)) continue;
+            if (/html|json|mpegurl/i.test(ct)) continue;
           }
           if (expiry && expiry <= Date.now()) continue;
           return { streamUrl: kind === 'mp4' ? stream : media.url, kind, referer: REFERER, expiresAt: expiry, source: new URL(page).hostname };
@@ -95,7 +99,7 @@ async function proxy(target: string, req: Request) {
   const { response, url } = await upstream(target, REFERER, req.headers.get('range'));
   if (!response.ok) { await response.body?.cancel(); return json({ error: 'Fonte indisponível' }, response.status); }
   const ct = response.headers.get('content-type') || '';
-  if (/mpegurl/i.test(ct) || /\.m3u8/i.test(url)) {
+  if (/mpegurl/i.test(ct) || /\.m3u8/i.test(url) || /\.m3u8$/i.test(new URL(url).searchParams.get('file') || '')) {
     const body = await readText(response);
     if (!body.trimStart().startsWith('#EXTM3U')) return json({ error: 'Playlist inválida' }, 502);
     const endpoint = new URL(req.url); endpoint.search = '';
