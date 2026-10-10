@@ -3,9 +3,8 @@ import assert from 'node:assert/strict';
 import { candidates, extractUrls, expiresAt, rewritePlaylist, allowedUrl } from '../supabase/functions/extract-stream/resolver.js';
 test('provider fallback preserves movie and episode IDs', () => {
   assert.equal(candidates('https://superflixapi.quest/filme/1492640')[0], 'https://mgeb.top/embed/1492640');
-  assert.equal(candidates('https://superflixapi.quest/serie/123/2/7')[1], 'https://superflixapi.quest/serie/123/2/7');
+  assert.equal(candidates('https://superflixapi.quest/serie/123/2/7')[1], 'https://nhdapi.com/embed/tv/123/2/7');
   assert.throws(() => candidates('https://superflixapi.evil.test/filme/123'));
-  assert.deepEqual(candidates('https://mgeb.top/filme/9').map(u => new URL(u).hostname), ['mgeb.top', 'superflixapi.quest', 'www.embedplay.one', 'nhdapi.com']);
 });
 test('HTML resolves relative and escaped URLs without altering signatures', () => {
   assert.deepEqual(extractUrls('<source src="../cache/a.m3u8?x=1&amp;y=2"><script>"https:\\/\\/flyfile.app/a.mp4"</script>', 'https://mgeb.top/embed/123'), ['https://mgeb.top/cache/a.m3u8?x=1&y=2', 'https://flyfile.app/a.mp4']);
@@ -36,16 +35,16 @@ test('Edge handler resolves fallback and proxies a playlist end to end', async (
   globalThis.fetch = async url => {
     requested.push(url);
     if (url === 'https://mgeb.top/embed/123/2/7') return new Response('Unavailable', { status: 503 });
-    if (url === 'https://superflixapi.quest/serie/123/2/7') return new Response('<source src="https://mgeb.top/cache/master.m3u8">');
+    if (url === 'https://nhdapi.com/embed/tv/123/2/7') return new Response('<source src="https://mgeb.top/cache/master.m3u8">');
     if (url === 'https://mgeb.top/cache/master.m3u8') return new Response('#EXTM3U\n#EXTINF:5,\nhttps://s1q2105.com/segment.ts', { headers: { 'content-type': 'application/vnd.apple.mpegurl' } });
     throw new Error('Unexpected URL: ' + url);
   };
   try {
     const response = await handler(new Request('https://backend.test/functions/v1/extract-stream', { method: 'POST', body: JSON.stringify({ id: '123', type: 'serie', season: 2, episode: 7 }) }));
     const data = await response.json();
-    assert.equal(data.source, 'superflixapi.quest');
+    assert.equal(data.source, 'nhdapi.com');
     assert.equal(data.kind, 'hls');
-    assert.equal(requested[1], 'https://superflixapi.quest/serie/123/2/7');
+    assert.equal(requested[1], 'https://nhdapi.com/embed/tv/123/2/7');
     const playback = await handler(new Request('https://backend.test/functions/v1/extract-stream?proxy=' + encodeURIComponent(data.streamUrl)));
     assert.equal(playback.status, 200);
     assert.match(await playback.text(), /https:\/\/backend.test\/functions\/v1\/extract-stream\?proxy=https%3A%2F%2Fs1q2105.com%2Fsegment.ts/);

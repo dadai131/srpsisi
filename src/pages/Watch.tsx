@@ -3,11 +3,10 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PlayerControls } from '@/components/PlayerControls';
-import { PLAYER3_SOURCES, buildEmbedUrl } from '@/lib/player3Sources.js';
 import { HlsPlayer } from '@/components/HlsPlayer';
 import { EpisodePicker } from '@/components/EpisodePicker';
 import { PlayerTheme } from '@/types/content';
-import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl, getDirectStreamUrl, playbackProxyUrl, DirectStream } from '@/lib/api';
+import { getPlayerUrl, fetchTVMazeSeasons, SeasonInfo, tmdbUrl, playbackProxyUrl, DirectStream, getDirectStreamUrl } from '@/lib/api';
 
 const Watch = () => {
   const { type, id: rawId } = useParams<{ type: string; id: string }>();
@@ -24,6 +23,11 @@ const Watch = () => {
   const [iframeLoading, setIframeLoading] = useState(false);
   const [iframeError, setIframeError] = useState(false);
   const iframeLoadedRef = useRef(false);
+  const [directStream, setDirectStream] = useState<DirectStream | null>(null);
+  const [loadingStream, setLoadingStream] = useState(false);
+  const [streamFailed, setStreamFailed] = useState(false);
+  const [streamError, setStreamError] = useState('');
+  const [streamAttempt, setStreamAttempt] = useState(0);
   const [theme, setTheme] = useState<PlayerTheme>({ color: 'e50914', transparent: false, noEpList: false });
   const isSeries = type === 'serie' || type === 'anime' || type === 'dorama';
 
@@ -68,34 +72,38 @@ const Watch = () => {
   }, [season, episode, seasons, activePlayer]);
 
 
-  // Player 3: use the existing Supabase extract-stream function (server-side HTML extraction).
-  const [player3Source, setPlayer3Source] = useState('mgeb');
-  const [player3LoadError, setPlayer3LoadError] = useState(false);
-  const player3EmbedUrl = id ? buildEmbedUrl(player3Source, id, isSeries ? 'serie' : 'movie', season, episode) : null;
-  const [resolved, setResolved] = useState<DirectStream | null>(null);
-  const [useMediaProxy, setUseMediaProxy] = useState(false);
-  const [resolving, setResolving] = useState(false);
-  const [resolveError, setResolveError] = useState('');
-  const [resolveRetry, setResolveRetry] = useState(0);
+  // Player 3: resolve fresh media URLs through the backend.
   useEffect(() => {
-    if (activePlayer !== 3 || !id) return;
+    if (activePlayer !== 3 || !id) {
+      if (activePlayer !== 3) { setDirectStream(null); setStreamFailed(false); }
+      return;
+    }
+
+    let cancelled = false;
     const controller = new AbortController();
-    setResolved(null); setUseMediaProxy(false); setResolveError(''); setResolving(true);
+    setLoadingStream(true);
+    setStreamFailed(false);
+    setStreamError('');
+    setDirectStream(null);
+
     getDirectStreamUrl(id, isSeries ? 'serie' : 'movie', season, episode, controller.signal)
-      .then(result => {
-        if (controller.signal.aborted) return;
-        if (result?.streamUrl) setResolved(result);
-        else setResolveError('A função extract-stream não encontrou um vídeo disponível.');
+      .then(data => {
+        if (cancelled) return;
+        if (!data || !data.streamUrl) throw new Error('Fonte de vídeo não encontrada');
+        setDirectStream(data);
       })
       .catch(error => {
-        if (!controller.signal.aborted) setResolveError(error instanceof Error ? error.message : 'Falha na função extract-stream.');
+        if (!cancelled) {
+          console.error('Player 3 Error:', error);
+          setDirectStream(null);
+          setStreamError(error instanceof Error ? error.message : 'Falha desconhecida no Player 3');
+          setStreamFailed(true);
+        }
       })
-      .finally(() => { if (!controller.signal.aborted) setResolving(false); });
-    return () => controller.abort();
-  }, [activePlayer, id, isSeries, season, episode, resolveRetry]);
-  useEffect(() => {
-    setPlayer3LoadError(false);
-  }, [id, season, episode, player3Source]);
+      .finally(() => { if (!cancelled) setLoadingStream(false); });
+
+    return () => { cancelled = true; controller.abort(); };
+  }, [activePlayer, id, season, episode, isSeries, streamAttempt]);
 
   useEffect(() => {
     if (!isSeries) return;
@@ -110,6 +118,7 @@ const Watch = () => {
   const rawPlayerUrl = id ? getPlayerUrl(id, isSeries ? 'serie' : 'movie', isSeries ? season : undefined, isSeries ? episode : undefined, theme, 1) : '';
   const playerUrl = isAllowedPlayerUrl(rawPlayerUrl) ? rawPlayerUrl : '';
   const invalidContent = !id;
+  const playbackSrc = directStream ? playbackProxyUrl(directStream.streamUrl, directStream.referer) : null;
 
   const handlePrevEpisode = () => { if (episode > 1) setEpisode(episode - 1); else if (season > 1) { const prev = seasons.find(s => s.season_number === season - 1); setSeason(season - 1); setEpisode(prev?.episode_count || 1); } };
   const handleNextEpisode = () => { const current = seasons.find(s => s.season_number === season); if (current && episode < current.episode_count) setEpisode(episode + 1); else { const next = seasons.find(s => s.season_number === season + 1); if (next) { setSeason(season + 1); setEpisode(1); } } };
@@ -123,34 +132,15 @@ const Watch = () => {
 
     <main className="pt-14"><div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
       <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 mb-3">
-        <button onClick={() => { setActivePlayer(1); }} className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 1 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 1</button>
-        <button onClick={() => { setActivePlayer(3); }} className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 3 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 3 • Loki</button>
+        <button onClick={() => { setActivePlayer(1); setStreamFailed(false); }} className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 1 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 1</button>
+        <button onClick={() => { setActivePlayer(3); setStreamFailed(false); }} className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activePlayer === 3 ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Player 3 • Loki</button>
       </div>
 
-      {activePlayer === 3 && <div className="flex flex-wrap items-center gap-2 mb-3">
-        <Button size="sm" variant="outline" onClick={() => setResolveRetry(v => v + 1)} disabled={resolving}>{resolving ? 'Buscando vídeo...' : 'Tentar extrair novamente'}</Button>
-        {PLAYER3_SOURCES.map(source => <Button key={source.id} size="sm" variant={player3Source === source.id ? 'default' : 'secondary'} onClick={() => { setPlayer3Source(source.id); setResolved(null); }}>{source.label}</Button>)}
-        {resolveError && <p role="status" className="w-full text-xs text-muted-foreground">{resolveError}</p>}
-      </div>}
       <div className="relative w-full aspect-video sm:min-h-[400px] bg-card rounded-lg overflow-hidden shadow-2xl mb-5">
         {invalidContent ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Conteúdo indisponível</p><p className="text-sm text-muted-foreground">O link acessado não é válido (ID: {rawId}).</p><Button variant="secondary" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button></div>
-        : activePlayer === 3 && resolving ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card"><Loader2 className="w-8 h-8 animate-spin" /><p className="text-sm">Procurando vídeo...</p></div>
-        : activePlayer === 3 && resolved?.streamUrl ? <HlsPlayer key={`${resolved.streamUrl}-${useMediaProxy}`} src={useMediaProxy ? playbackProxyUrl(resolved.streamUrl, resolved.referer, resolved.sig) : resolved.streamUrl} isHls={resolved.kind === 'hls' || /\.m3u8(?:[?#]|$)/i.test(resolved.streamUrl)} onFatalError={() => { if (!useMediaProxy) { setUseMediaProxy(true); setResolveError('Reprodução direta falhou; tentando proxy de mídia.'); } else { setResolved(null); setResolveError('A fonte recusou a reprodução mesmo pelo proxy.'); } }} />
-        : activePlayer === 3 && player3EmbedUrl && !player3LoadError ? <iframe
-            key={`p3-${player3Source}-${id}-${season}-${episode}`}
-            src={player3EmbedUrl}
-            title="Player 3 — fonte externa"
-            className="absolute inset-0 w-full h-full border-0"
-            allow="autoplay; fullscreen; picture-in-picture"
-            allowFullScreen
-            referrerPolicy="strict-origin-when-cross-origin"
-            onError={() => setPlayer3LoadError(true)}
-          />
-        : activePlayer === 3 ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center">
-            <p className="text-foreground font-semibold">Fonte do Player 3 indisponível</p>
-            <p className="text-sm text-muted-foreground">A fonte pode bloquear incorporação ou estar fora do ar. Experimente outra fonte.</p>
-            <Button variant="secondary" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button>
-          </div>
+        : activePlayer === 3 && loadingStream ? <div className="absolute inset-0 flex flex-col items-center justify-center bg-card gap-2"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /><p className="text-xs text-muted-foreground">Carregando Player 3...</p></div>
+        : activePlayer === 3 && streamFailed ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center"><p className="text-foreground font-semibold">Player 3 indisponível</p><p className="text-sm text-muted-foreground">{streamError || 'Não foi possível carregar uma fonte de vídeo. Tente novamente.'}</p><Button variant="default" size="sm" onClick={() => setStreamAttempt(value => value + 1)}>Tentar novamente</Button><Button variant="secondary" size="sm" onClick={() => setActivePlayer(1)}>Ir para o Player 1</Button></div>
+        : activePlayer === 3 && playbackSrc ? <HlsPlayer key={playbackSrc} src={playbackSrc} isHls={directStream?.kind === 'hls'} onFatalError={() => { setDirectStream(null); setStreamError('Player 3 indisponível agora. Tente o Player 1.'); setStreamFailed(true); }} />
         : activePlayer === 1 && iframeError ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card px-6 text-center">
             <p className="text-foreground font-semibold">Este conteúdo está bloqueado.</p>
             <p className="text-sm text-muted-foreground">Contacte o proprietário do site para corrigir o problema.</p>

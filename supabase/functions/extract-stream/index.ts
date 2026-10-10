@@ -1,14 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { allowedUrl, publicUrl, candidates, extractUrls, extractPages, embedplayIds, expiresAt, rewritePlaylist, m3uEntries } from './resolver.js';
-
-// Assinatura HMAC: só URLs encontradas pelo próprio extrator podem passar pelo proxy fora da allowlist.
-const SIGN_KEY = (globalThis as any).Deno?.env?.get('SUPABASE_SERVICE_ROLE_KEY') || 'loki-player3';
-let keyPromise: Promise<CryptoKey> | null = null;
-async function sign(url: string) {
-  keyPromise ??= crypto.subtle.importKey('raw', new TextEncoder().encode(SIGN_KEY), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', await keyPromise, new TextEncoder().encode(url)));
-  return [...mac.slice(0, 16)].map(b => b.toString(16).padStart(2, '0')).join('');
-}
+import { allowedUrl, candidates, extractUrls, expiresAt, rewritePlaylist } from './resolver.js';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,9 +14,9 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 });
 
 // Check every redirect; this public endpoint must not become an arbitrary URL proxy.
-async function upstream(url: string, referer: string, range?: string | null, allow: (u: string) => boolean = allowedUrl) {
+async function upstream(url: string, referer: string, range?: string | null) {
   for (let hop = 0; hop < 5; hop++) {
-    if (!allow(url)) throw new Error('Unsupported upstream host');
+    if (!allowedUrl(url)) throw new Error('Unsupported upstream host');
     const response = await fetch(url, {
       redirect: 'manual', signal: AbortSignal.timeout(8000),
       headers: { 'User-Agent': UA, Referer: referer, Origin: new URL(referer).origin,
@@ -58,124 +49,47 @@ async function readText(response: Response) {
     return text + decoder.decode();
   } finally { await reader.cancel(); }
 }
-async function imdbFallback(source: string): Promise<string | null> {
-  try {
-    const u = new URL(source);
-    const m = u.pathname.match(/^\/(filme|serie)\/(\d{1,12})(?:\/(\d{1,4})\/(\d{1,4}))?\/?$/);
-    if (!m) return null;
-    const key = Deno.env.get('TMDB_API_KEY');
-    if (!key) return null;
-    const media = m[1] === 'filme' ? 'movie' : 'tv';
-    const res = await fetch(`https://api.themoviedb.org/3/${media}/${m[2]}/external_ids?api_key=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return null;
-    const imdb = (await res.json())?.imdb_id;
-    return typeof imdb === 'string' && /^tt\d{5,12}$/.test(imdb) && media === 'movie'
-      ? `https://www.embedplay.one/filme/${imdb}` : null;
-  } catch { return null; }
-}
 async function extract(source: string) {
-  // Fontes em sequência; a primeira que achar vídeo válido retorna na hora.
-  const end = Date.now() + 45000;
-  const sources = candidates(source);
-  const imdb = await imdbFallback(source);
-  if (imdb && !sources.includes(imdb)) sources.push(imdb);
-  for (const start of sources) {
-    if (Date.now() >= end) break;
-    const found = await extractFrom(start, Math.min(end, Date.now() + 15000));
-    if (found) return found;
-  }
-  return null;
-}
-async function embedplayPlayers(pageUrl: string, html: string) {
-  const out: string[] = [];
-  for (const id of embedplayIds(html).slice(0, 4)) {
+  for (const page of candidates(source)) {
     try {
-      const r = await fetch('https://www.embedplay.one/api', { method: 'POST', signal: AbortSignal.timeout(6000),
-        headers: { 'User-Agent': UA, Referer: pageUrl, Origin: 'https://www.embedplay.one', 'X-Requested-With': 'XMLHttpRequest',
-          'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ action: 'getPlayer', video_id: id }) });
-      const u = (await r.json())?.data?.video_url;
-      if (typeof u === 'string' && publicUrl(u)) out.push(u);
-    } catch { /* next */ }
-  }
-  return out;
-}
-async function extractFrom(startUrl: string, deadline: number) {
-  // V2: segue iframes/páginas de player (crawl_embeds) até 3 níveis, sem executar JS.
-  const queue: [string, number][] = [[startUrl, 1]];
-  const visited = new Set<string>();
-  const trusted = new Set<string>(); // hosts descobertos neste crawl
-  const isTrusted = (u: string) => { try { return trusted.has(new URL(u).hostname); } catch { return false; } };
-  while (queue.length && visited.size < 10 && Date.now() < deadline) {
-    const [page, depth] = queue.shift()!;
-    if (visited.has(page)) continue;
-    visited.add(page);
-    try {
-      const loaded = await upstream(page, depth === 1 ? REFERER : page, null, u => allowedUrl(u) || publicUrl(u));
+      const loaded = await upstream(page, REFERER);
       if (!loaded.response.ok) { await loaded.response.body?.cancel(); continue; }
       const html = await readText(loaded.response);
-      trusted.add(new URL(loaded.url).hostname);
-      const referer = depth === 1 ? REFERER : loaded.url;
-      const streams: string[] = extractUrls(html, loaded.url, isTrusted).slice(0, 8);
-      const checkedStreams = new Set<string>();
-      for (let i = 0; i < streams.length && i < 20; i++) {
-        const stream = streams[i];
-        if (checkedStreams.has(stream)) continue;
-        checkedStreams.add(stream);
+      for (const stream of extractUrls(html, loaded.url).slice(0, 8)) {
         try {
-          let kind: 'hls' | 'mp4' = /\.m3u8?(?:[?#]|$)/i.test(stream) || /[?&]file=[^&]*\.m3u8(?:&|$)/i.test(stream) ? 'hls' : 'mp4';
-          const allow = (u: string) => allowedUrl(u) || publicUrl(u);
-          const media = await upstream(stream, referer, kind === 'mp4' ? 'bytes=0-4095' : null, allow);
+          const kind = /\.m3u8/i.test(stream) ? 'hls' : 'mp4';
+          const media = await upstream(stream, REFERER, kind === 'mp4' ? 'bytes=0-4095' : null);
           if (!media.response.ok) { await media.response.body?.cancel(); continue; }
           let expiry = expiresAt(stream);
-          const ct = media.response.headers.get('content-type') || '';
-          if (/mpegurl/i.test(ct)) kind = 'hls';
-          if (kind === 'hls' || !/video|octet/i.test(ct)) {
-            const text = await readText(media.response);
-            if (text.trimStart().startsWith('#EXTM3U') && !/#EXT-X-/i.test(text)) {
-              // M3U is a list, not a playable HLS manifest. Resolve a permitted media entry.
-              for (const entry of m3uEntries(text, media.url, allow)) if (!checkedStreams.has(entry) && !streams.includes(entry)) streams.push(entry);
-              continue;
-            }
-            if (text.trimStart().startsWith('#EXTM3U')) {
-              kind = 'hls';
-              expiry = expiresAt(text) ?? expiry;
-            } else if (kind === 'hls' || /html|json|text/i.test(ct)) continue;
+          if (kind === 'hls') {
+            const playlist = await readText(media.response);
+            if (!playlist.trimStart().startsWith('#EXTM3U')) continue;
+            expiry = expiresAt(playlist) ?? expiry;
+            // Validate nested hosts before returning an unusable playlist.
+            rewritePlaylist(playlist, media.url, (url: string) => url);
           } else {
+            const ct = media.response.headers.get('content-type') || '';
             await media.response.body?.cancel();
+            if (/html|json/i.test(ct)) continue;
           }
           if (expiry && expiry <= Date.now()) continue;
-          const streamUrl = kind === 'mp4' ? stream : media.url;
-          return { streamUrl, kind, referer, expiresAt: expiry, source: new URL(page).hostname,
-            ...(allowedUrl(streamUrl) ? {} : { sig: await sign(streamUrl) }) };
+          return { streamUrl: kind === 'mp4' ? stream : media.url, kind, referer: REFERER, expiresAt: expiry, source: new URL(page).hostname };
         } catch { /* Try next stream. */ }
       }
-      if (depth === 1 && /embedplay\.one$/.test(new URL(loaded.url).hostname))
-        for (const p of await embedplayPlayers(loaded.url, html)) queue.unshift([p, 2]);
-      if (depth < 3) for (const next of extractPages(html, loaded.url)) if (!visited.has(next)) queue.push([next, depth + 1]);
-    } catch { /* Try next page, including on timeout. */ }
+    } catch { /* Try next provider, including on timeout. */ }
   }
   return null;
 }
 async function proxy(target: string, req: Request) {
-  const params = new URL(req.url).searchParams;
-  const signed = publicUrl(target) && params.get('sig') === await sign(target);
-  if (!allowedUrl(target) && !signed) return json({ error: 'URL de mídia não permitida' }, 400);
-  const ref = params.get('referer');
-  const referer = ref && publicUrl(ref) ? ref : REFERER;
-  const allow = (u: string) => allowedUrl(u) || (signed && publicUrl(u));
-  const { response, url } = await upstream(target, referer, req.headers.get('range'), allow);
+  if (!allowedUrl(target)) return json({ error: 'URL de mídia não permitida' }, 400);
+  const { response, url } = await upstream(target, REFERER, req.headers.get('range'));
   if (!response.ok) { await response.body?.cancel(); return json({ error: 'Fonte indisponível' }, response.status); }
   const ct = response.headers.get('content-type') || '';
   if (/mpegurl/i.test(ct) || /\.m3u8/i.test(url)) {
     const body = await readText(response);
     if (!body.trimStart().startsWith('#EXTM3U')) return json({ error: 'Playlist inválida' }, 502);
     const endpoint = new URL(req.url); endpoint.search = '';
-    const lines = body.split(/\r?\n/);
-    const sigs = new Map<string, string>();
-    rewritePlaylist(body, url, (uri: string) => { if (!allowedUrl(uri)) sigs.set(uri, ''); return uri; }, allow);
-    for (const uri of sigs.keys()) sigs.set(uri, await sign(uri));
-    const refQs = referer !== REFERER ? `&referer=${encodeURIComponent(referer)}` : '';
-    const rewritten = rewritePlaylist(lines.join('\n'), url, (uri: string) => `${endpoint}?proxy=${encodeURIComponent(uri)}${sigs.has(uri) ? `&sig=${sigs.get(uri)}` : ''}${refQs}`, allow);
+    const rewritten = rewritePlaylist(body, url, (uri: string) => `${endpoint}?proxy=${encodeURIComponent(uri)}`);
     return new Response(rewritten, { headers: { ...corsHeaders, 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'no-store' } });
   }
   const headers = new Headers(corsHeaders);
