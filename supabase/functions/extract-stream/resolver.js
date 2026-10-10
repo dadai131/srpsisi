@@ -48,7 +48,7 @@ export function extractPages(html, base) {
   for (const m of text.matchAll(/<iframe[^>]{0,1000}?(?:src|data-src)=['"]([^'"]+)['"]/gi)) add(m[1]);
   for (const m of text.matchAll(/(?:src|file|url|embed|player)\s*[:=]\s*['"]((?:https?:)?\/\/[^\s'"<>]{4,500})['"]/gi)) add(m[1]);
   for (const m of text.matchAll(/['"]((?:https?:)?\/\/[^\s'"<>]+\/(?:embed|player|watch|e|v)\/[^\s'"<>]*)['"]/gi)) add(m[1]);
-  return [...out].filter(u => !/\.(?:m3u8|mp4)(?:\?|$)/i.test(u));
+  return [...out].filter(u => !/\.(?:m3u8|m3u|mp4)(?:\?|$)/i.test(u));
 }
 export function extractUrls(html, base, extraAllowed = () => false) {
   const text = decodeText(html);
@@ -58,8 +58,8 @@ export function extractUrls(html, base, extraAllowed = () => false) {
   const src = text.match(/var\s+sources\s*=\s*(\[[\s\S]*?\]);/);
   if (src) { try { for (const s of JSON.parse(src[1])) if (s?.file) declared.push({ file: s.file, mp4: s.type === 'mp4' }); } catch { /* ignore */ } }
   declared.sort((a, b) => Number(a.mp4) - Number(b.mp4));
-  const matches = declared.map(d => d.file).concat(text.match(/(?:https?:\/\/|\/\/|\.\.?\/|\/)[^\s"'<>\\]*?\.(?:m3u8|mp4)(?:\?[^\s"'<>\\]*)?/gi) || []);
-  return [...new Set(matches.map(value => { try { const normalized = value.startsWith('//') ? 'https:' + value : value; return new URL(normalized.replace(/^(https?:\/\/[^/]+)\/(?:\.\.?\/)+/, '$1/'), base).href; } catch { return null; } }).filter(Boolean))].filter(u => allowedUrl(u) || (publicUrl(u) && extraAllowed(u))).sort((a, b) => Number(/\.m3u8(?:[?#]|$)/i.test(b)) - Number(/\.m3u8(?:[?#]|$)/i.test(a)));
+  const matches = declared.map(d => d.file).concat(text.match(/(?:https?:\/\/|\/\/|\.\.?\/|\/)[^\s"'<>\\]*?\.(?:m3u8|m3u|mp4)(?:\?[^\s"'<>\\]*)?/gi) || []);
+  return [...new Set(matches.map(value => { try { const normalized = value.startsWith('//') ? 'https:' + value : value; return new URL(normalized.replace(/^(https?:\/\/[^/]+)\/(?:\.\.?\/)+/, '$1/'), base).href; } catch { return null; } }).filter(Boolean))].filter(u => allowedUrl(u) || (publicUrl(u) && extraAllowed(u))).sort((a, b) => Number(/\.m3u8?(?:[?#]|$)/i.test(b)) - Number(/\.m3u8?(?:[?#]|$)/i.test(a)));
 }
 export function expiresAt(text) {
   const values = [...text.matchAll(/(?:exp=|expires=)(\d{10,13})/g)].map(m => Number(m[1]) * (m[1].length === 13 ? 1 : 1000));
@@ -80,4 +80,20 @@ export function rewritePlaylist(text, base, wrap, isAllowed = allowedUrl) {
 // EmbedPlay: opções carregadas via POST /api (action=getPlayer, video_id=data-id).
 export function embedplayIds(html) {
   return [...new Set([...html.matchAll(/class=['"]player_select_item['"][^>]*data-id=['"](\d{1,10})['"]/gi)].map(m => m[1]))];
+}
+
+// M3U de catálogo: seleciona somente URLs de mídia HTTPS permitidas.
+export function m3uEntries(text, base, isAllowed = allowedUrl) {
+  if (!text.trimStart().startsWith('#EXTM3U') || /#EXT-X-/i.test(text)) return [];
+  const entries = [];
+  for (const line of text.split(/\r?\n/)) {
+    const value = line.trim();
+    if (!value || value.startsWith('#')) continue;
+    try {
+      const url = new URL(value, base).href;
+      if (isAllowed(url) && /\.(?:m3u8|m3u|mp4|ts)(?:[?#]|$)/i.test(url)) entries.push(url);
+    } catch { /* skip invalid entry */ }
+    if (entries.length >= 12) break;
+  }
+  return entries;
 }
