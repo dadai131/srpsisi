@@ -49,13 +49,20 @@ async function readText(response: Response) {
     return text + decoder.decode();
   } finally { await reader.cancel(); }
 }
-async function extract(source: string) {
+async function extract(source: string, trace: Array<Record<string, unknown>> = []) {
   for (const page of candidates(source)) {
+    const entry: Record<string, unknown> = { provider: new URL(page).hostname };
+    trace.push(entry);
     try {
       const loaded = await upstream(page, REFERER);
-      if (!loaded.response.ok) { await loaded.response.body?.cancel(); continue; }
+      entry.http = loaded.response.status;
+      if (!loaded.response.ok) { await loaded.response.body?.cancel(); entry.reason = 'provider_http_error'; continue; }
       const html = await readText(loaded.response);
       const queue = extractUrls(html, loaded.url).slice(0, 12);
+      entry.candidates = queue.length;
+      if (!queue.length) entry.reason = /turnstile|challenge|just a moment/i.test(html) ? 'challenge_page' : 'no_recognized_media_urls';
+      const failures: Record<string, number> = {};
+      entry.mediaFailures = failures;
       const visited = new Set<string>();
       for (let i = 0; i < queue.length && i < 24; i++) {
         const stream = queue[i];
@@ -67,7 +74,7 @@ async function extract(source: string) {
           const file = parsed.searchParams.get('file') || '';
           let kind = /\.m3u8$/i.test(pathname) || /\.m3u8$/i.test(file) ? 'hls' : /\.m3u$/i.test(pathname) ? 'm3u' : 'mp4';
           const media = await upstream(stream, REFERER, kind === 'mp4' ? 'bytes=0-4095' : null);
-          if (!media.response.ok) { await media.response.body?.cancel(); continue; }
+          if (!media.response.ok) { failures[`http_${media.response.status}`] = (failures[`http_${media.response.status}`] || 0) + 1; await media.response.body?.cancel(); continue; }
           let expiry = expiresAt(stream);
           const mediaType = media.response.headers.get('content-type') || '';
           if (kind === 'mp4' && /(?:mpegurl|x-mpegurl)/i.test(mediaType)) kind = 'hls';
@@ -78,7 +85,7 @@ async function extract(source: string) {
           }
           if (kind === 'hls') {
             const playlist = await readText(media.response);
-            if (!playlist.trimStart().startsWith('#EXTM3U')) continue;
+            if (!playlist.trimStart().startsWith('#EXTM3U')) { failures.invalid_hls = (failures.invalid_hls || 0) + 1; continue; }
             expiry = expiresAt(playlist) ?? expiry;
             rewritePlaylist(playlist, media.url, (url: string) => url);
           } else {
@@ -88,9 +95,9 @@ async function extract(source: string) {
           }
           if (expiry && expiry <= Date.now()) continue;
           return { streamUrl: kind === 'mp4' ? stream : media.url, kind, referer: REFERER, expiresAt: expiry, source: new URL(page).hostname };
-        } catch { /* Try next stream. */ }
+        } catch (error) { const key = error instanceof Error && /Unsupported|host/i.test(error.message) ? 'blocked_host' : 'media_exception'; failures[key] = (failures[key] || 0) + 1; }
       }
-    } catch { /* Try next provider, including on timeout. */ }
+    } catch (error) { entry.reason = error instanceof Error && /timeout|abort/i.test(error.message) ? 'provider_timeout' : 'provider_exception'; }
   }
   return null;
 }
@@ -128,8 +135,11 @@ serve(async req => {
     }
     if (typeof sourceUrl !== 'string') return json({ error: 'URL inválida' }, 400);
     try { candidates(sourceUrl); } catch { return json({ error: 'Conteúdo inválido' }, 400); }
-    const result = await extract(sourceUrl);
-    return json(result || { streamUrl: null, error: 'Nenhuma fonte disponível para este conteúdo.' });
+    const trace: Array<Record<string, unknown>> = [];
+    const result = await extract(sourceUrl, trace);
+    const debug = body?.debug === true;
+    return json(result ? (debug ? { ...result, diagnostic: { version: '2026-10-10-diagnostic-1', providers: trace } } : result) :
+      { streamUrl: null, error: 'Nenhuma fonte disponível para este conteúdo.', ...(debug ? { diagnostic: { version: '2026-10-10-diagnostic-1', providers: trace } } : {}) });
   } catch {
     return json({ error: 'Não foi possível consultar a fonte.' }, 502);
   }
