@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { allowedUrl, publicUrl, candidates, extractUrls, extractPages, embedplayIds, expiresAt, rewritePlaylist } from './resolver.js';
+import { allowedUrl, publicUrl, candidates, extractUrls, extractPages, embedplayIds, expiresAt, rewritePlaylist, m3uEntries } from './resolver.js';
 
 // Assinatura HMAC: só URLs encontradas pelo próprio extrator podem passar pelo proxy fora da allowlist.
 const SIGN_KEY = (globalThis as any).Deno?.env?.get('SUPABASE_SERVICE_ROLE_KEY') || 'loki-player3';
@@ -115,9 +115,14 @@ async function extractFrom(startUrl: string, deadline: number) {
       const html = await readText(loaded.response);
       trusted.add(new URL(loaded.url).hostname);
       const referer = depth === 1 ? REFERER : loaded.url;
-      for (const stream of extractUrls(html, loaded.url, isTrusted).slice(0, 8)) {
+      const streams: string[] = extractUrls(html, loaded.url, isTrusted).slice(0, 8);
+      const checkedStreams = new Set<string>();
+      for (let i = 0; i < streams.length && i < 20; i++) {
+        const stream = streams[i];
+        if (checkedStreams.has(stream)) continue;
+        checkedStreams.add(stream);
         try {
-          let kind: 'hls' | 'mp4' = /\.m3u8?(\?|$)/i.test(stream) ? 'hls' : 'mp4';
+          let kind: 'hls' | 'mp4' = /\.m3u8?(?:[?#]|$)/i.test(stream) || /[?&]file=[^&]*\.m3u8(?:&|$)/i.test(stream) ? 'hls' : 'mp4';
           const allow = (u: string) => allowedUrl(u) || publicUrl(u);
           const media = await upstream(stream, referer, kind === 'mp4' ? 'bytes=0-4095' : null, allow);
           if (!media.response.ok) { await media.response.body?.cancel(); continue; }
@@ -126,6 +131,11 @@ async function extractFrom(startUrl: string, deadline: number) {
           if (/mpegurl/i.test(ct)) kind = 'hls';
           if (kind === 'hls' || !/video|octet/i.test(ct)) {
             const text = await readText(media.response);
+            if (text.trimStart().startsWith('#EXTM3U') && !/#EXT-X-/i.test(text)) {
+              // M3U is a list, not a playable HLS manifest. Resolve a permitted media entry.
+              for (const entry of m3uEntries(text, media.url, allow)) if (!checkedStreams.has(entry) && !streams.includes(entry)) streams.push(entry);
+              continue;
+            }
             if (text.trimStart().startsWith('#EXTM3U')) {
               kind = 'hls';
               expiry = expiresAt(text) ?? expiry;
