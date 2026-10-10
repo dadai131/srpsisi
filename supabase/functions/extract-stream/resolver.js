@@ -29,7 +29,16 @@ export function extractUrls(html, base) {
   // HLS endpoints may be PHP scripts with file=master.m3u8 in the query.
   const phpHls = text.match(/https?:\/\/[^\s"'<>\\]+?\/includes\/hls\.php\?[^\s"'<>\\]+/gi) || [];
   matches.push(...phpHls.map(value => value.replace(/&amp;/g, '&')));
-  return [...new Set(matches.map(value => new URL(value.replace(/^(https?:\/\/[^/]+)\/(?:\.\.?\/)+/, '$1/'), base).href))].filter(allowedUrl);
+  // One malformed match must not discard all valid sources from this provider.
+  const urls = [];
+  for (const value of matches) {
+    try {
+      const normalized = value.replace(/^(https?:\/\/[^/]+)\/(?:\.\.?\/)+/, '$1/');
+      const resolved = new URL(normalized, base).href;
+      if (allowedUrl(resolved)) urls.push(resolved);
+    } catch { /* ignore malformed URL, continue with other candidates */ }
+  }
+  return [...new Set(urls)];
 }
 export function expiresAt(text) {
   const values = [...text.matchAll(/(?:exp=|expires=)(\d{10,13})/g)].map(m => Number(m[1]) * (m[1].length === 13 ? 1 : 1000));
